@@ -2,10 +2,16 @@
 
 ## Install
 - First  clone the repo:
-``` $ git clone https://github.com/lromeraj/c-target ```
+``` 
+$ git clone https://github.com/lromeraj/c-target 
+```
 - Go inside project directory
-````$ cd c-target ``` 
+```
+$ cd c-target 
+``` 
 - And finally install it
-``` $ make install ```
+```
+$ make install
+```
 
 ## Usage
