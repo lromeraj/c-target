@@ -1600,13 +1600,13 @@ void _p( PrintType type, const char *frmt, ... ) {
 			printf( "%swarn%s: %s", ANSI_FG_BYELLOW, ANSI_RESET, _buff );
 			break;
 		case _TASK_START:
-			printf("===== [%s%s%s] %s%s%s\n", ANSI_FG_BPURPLE, ENV, ANSI_RESET, ANSI_FG_BGREEN, _buff, ANSI_RESET );
+			printf("======== [%s%s%s] %s%s%s\n", ANSI_FG_BPURPLE, ENV, ANSI_RESET, ANSI_FG_BGREEN, _buff, ANSI_RESET );
 			break;
 		case _NOTE:
 			printf("%snote%s: %s%s", ANSI_FG_BPURPLE, ANSI_RESET, _buff, ANSI_RESET );
 			break;
 		case _TASK_END:
-			printf("===== [%s%s%s] %s%s%s\n", ANSI_FG_BPURPLE, ENV, ANSI_RESET, ANSI_FG_BRED, _buff, ANSI_RESET );
+			printf("======== [%s%s%s] %s%s%s\n", ANSI_FG_BPURPLE, ENV, ANSI_RESET, ANSI_FG_BRED, _buff, ANSI_RESET );
 			break;
 	}
 
