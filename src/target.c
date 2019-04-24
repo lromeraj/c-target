@@ -421,6 +421,8 @@ int main( int argc, char *argv[] ) {
 
 		} else if ( !strcmptok( _arg, "-m,--cmem", "," ) ) {
 
+			_p( _TASK_START, "MEMCHECK START" );
+
 			conf_check_p( TARGET, _NULL_CHECK, _END_CHECK );
 
 			if ( !exists_cmd( "valgrind" ) ) {
@@ -467,6 +469,8 @@ int main( int argc, char *argv[] ) {
 				system( _cmd );
 
 			}
+
+			_p( _TASK_END, "MEMCHECK END" );
 
 		} else if ( !strcmptok( _arg, "-r,--run", "," ) ) {
 
