@@ -83,6 +83,8 @@ typedef struct _Argv {
 	int _max, _n;
 } Argv;
 
+void _kill( int errc );
+
 void _p( PrintType type, const char *frmt, ... );
 
 int strcmptok( const char *str, char *strl, const char *del );
@@ -112,6 +114,7 @@ void argv_free( Argv *_argv );
 
 bool read_bool_ans();
 
+void ascii_decorations();
 
 void basename( char *dest, char *src, size_t size ) {
 
@@ -325,7 +328,7 @@ int main( int argc, char *argv[] ) {
 
 	if ( argc < 2 ) {
 		_p( _ERROR, "too few args\n");
-		exit( 1 );
+		_kill( 1 );
 	}
 
 	/* check for configuration file */
@@ -333,7 +336,7 @@ int main( int argc, char *argv[] ) {
 
 	if ( !_f && strcmptok( argv[ 1 ], "-i,--init", "," ) ) {
 		_p( _ERROR, "%s%s%s: no such file\n", ANSI_FG_BWHITE, CONF_FILE_NAME, ANSI_RESET );
-		exit( 1 );
+		_kill( 1 );
 	}
 
 	if ( _f ) fclose( _f );
@@ -383,8 +386,17 @@ int main( int argc, char *argv[] ) {
 	_str = conf_get_p( DEFAULT_ENV, 1 );
 
 	if ( _str && strcmptok( argv[ 1 ], "-e,--env,-i,--init,-h,--help", "," ) ) {
-		env_load( CONF_FILE_NAME, _str );
-		_p( _INFO, "using [%s%s%s] as default environment\n", ANSI_FG_YELLOW, _str, ANSI_RESET );
+
+		sts = env_load( CONF_FILE_NAME, _str );
+
+		if ( !sts ) {
+			_p( _INFO, "using [%s%s%s] as default environment\n", ANSI_FG_YELLOW, _str, ANSI_RESET );
+			ascii_decorations();
+		} else {
+			_p( _ERROR, "default env [%s] was not found\n", _str );
+			_kill( 1 );
+		}
+
 	}
 
 	for ( i=1; i<argc; i++ ) {
@@ -544,10 +556,9 @@ int main( int argc, char *argv[] ) {
 
 	}
 
-	/* clean up config data */
-	conf_free_all();
+	_kill( 0 );
 
-	return 0;
+	return EXIT_SUCCESS;
 }
 
 void conf_free_all() {
@@ -1650,4 +1661,26 @@ void _help() {
 
 	ui_destroy( ui );
 
+}
+
+
+void ascii_decorations() {
+
+	/* print ascii decorations */
+	printf("%s", ANSI_FG_BPURPLE );
+	print_file( stdout, (char*)conf_get_p( ASCII_TITLE, 1 ) );
+	printf("%s", ANSI_RESET );
+
+	printf("%s", ANSI_FG_BYELLOW );
+	print_file( stdout, (char*)conf_get_p( ASCII_VERSION, 1 ) );
+	printf("%s", ANSI_RESET );
+
+}
+
+void _kill( int errc ) {
+
+	/* clean up config data */
+	conf_free_all();
+
+	exit( errc );
 }
