@@ -14,7 +14,7 @@ $(OBJDIR)/%.o: $(SRCDIR)/%.c
 	$(CC) -Wall -I $(INCDIR) -c -o $@ $^
 
 install: ctarget
-	cp ctarget /usr/local/bin/
+	sudo cp ctarget /usr/local/bin/
 
 clean: ctarget
 	./ctarget -e ctarget -cl

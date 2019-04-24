@@ -401,7 +401,17 @@ int main( int argc, char *argv[] ) {
 				sts = env_load( CONF_FILE_NAME, argv[ i + 1 ] );
 
 				if ( !sts ) {
+
 					/* success */
+					/* print ascii decorations */
+					printf("%s", ANSI_FG_BPURPLE );
+					print_file( stdout, (char*)conf_get_p( ASCII_TITLE, 1 ) );
+					printf("%s", ANSI_RESET );
+
+					printf("%s", ANSI_FG_BYELLOW );
+					print_file( stdout, (char*)conf_get_p( ASCII_VERSION, 1 ) );
+					printf("%s", ANSI_RESET );
+
 				} else if ( sts == 2 ) {
 					_p( _ERROR, "env: [%s] not found\n", argv[ i + 1 ] );
 				}
@@ -501,15 +511,6 @@ int main( int argc, char *argv[] ) {
 		} else if ( !strcmptok( _arg, "-c,--comp", "," ) ) {
 
 			_p( _TASK_START, "COMPILATION START" );
-
-			/* print ascii decorations */
-			printf("%s", ANSI_FG_BPURPLE );
-			print_file( stdout, (char*)conf_get_p( ASCII_TITLE, 1 ) );
-			printf("%s", ANSI_RESET );
-
-			printf("%s", ANSI_FG_BYELLOW );
-			print_file( stdout, (char*)conf_get_p( ASCII_VERSION, 1 ) );
-			printf("%s", ANSI_RESET );
 
 			sts = _comp();
 
