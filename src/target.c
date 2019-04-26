@@ -1326,7 +1326,7 @@ void _ini() {
 	}
 
 	/* request project name */
-	printf("project name [%ld]: ", sizeof( _name ) );
+	printf("project name [%ld]: ", (long)sizeof( _name ) );
 	fgets( _name, sizeof( _name ), stdin );
 	strcln( _name );
 
