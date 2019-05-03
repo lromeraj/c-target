@@ -334,7 +334,7 @@ int main( int argc, char *argv[] ) {
 	/* check for configuration file */
 	_f = fopen( CONF_FILE_NAME, "r" );
 
-	if ( !_f && strcmptok( argv[ 1 ], "-i,--init", "," ) ) {
+	if ( !_f && strcmptok( argv[ 1 ], "-i,--init,-h,--help", "," ) ) {
 		_p( _ERROR, "%s%s%s: no such file\n", ANSI_FG_BWHITE, CONF_FILE_NAME, ANSI_RESET );
 		_kill( 1 );
 	}
@@ -1638,9 +1638,6 @@ void _help() {
 
 	ui_new_box( ui, HELP_HEAD, 0, 0, 80, 1 );
 	ui_new_box( ui, HELP_BODY, 0, 1, 80, 21 );
-
-	ui_box_frm( ui, HELP_HEAD, 1, S_DEFAULT );
-	ui_box_frm( ui, HELP_BODY, 1, S_DEFAULT );
 
 	ui_box_put( ui, HELP_HEAD, "@{1;33}C-target@{0} by @{1;36}@lromeraj@{0} @{1}v0.9.1@{0}" );
 	ui_box_put( ui, HELP_BODY, "  @{1}-i, --init@{0}    Initializes a new project\n" );
