@@ -73,3 +73,29 @@ void strcln( char *str ) {
 
 	str[ len ? len - 1 : 0 ] = 0;
 }
+
+int strcmptok(
+	const char *str,
+	char *strl,
+	const char *del
+) {
+
+	char *tok;
+	char _buff[1024];
+
+	if ( !str || !strl || !del )
+		return 1;
+
+	strncpy( _buff, strl, sizeof( _buff ) );
+	_buff[ sizeof( _buff ) - 1 ] = 0;
+
+	tok = strtok( _buff, del );
+
+	while ( tok ) {
+		if ( !strcmp( tok, str ) )
+			return 0;
+		tok = strtok( NULL, del );
+	}
+
+	return 1;
+}

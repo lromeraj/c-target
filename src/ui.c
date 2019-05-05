@@ -1145,17 +1145,18 @@ void ui_draw( FILE *stream, Ui *ui ) {
   int o_xor=0, /* old format check sum */
       xor;  /* current format check sum */
   char __frm[ UI_MAX_SFRM_LEN ] = "";
+  bool pfrm;
 
   if ( !stream || !ui )
     return;
 
   scr_w = ui->scr.w;
+  pfrm = true;
 
   for ( i=0; i < ui->__len; i++ ) {
 
     pix = ui->__pixs[ i ];
     cpix = ui->__cache[ i ];
-
     if ( !pix ) {
       fprintf( stream, "\033[1;31;47m UI FATAL ERROR \033[0m\n");
       break;
@@ -1185,11 +1186,14 @@ void ui_draw( FILE *stream, Ui *ui ) {
 
     }
 
+
     if ( xor != cpix->csum ) {
-      fprintf( stream, "%s%c", __frm, pix->c );
+      fprintf( stream, "%s", __frm );
     } else {
-      fprintf( stream, "%s%c", cpix->sfrm, pix->c );
+      fprintf( stream, "%s", cpix->sfrm );
     }
+
+    putc( pix->c, stream );
 
     if ( (i+1)%scr_w == 0 ) {
       fprintf( stream, "\033[0m\n");

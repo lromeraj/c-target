@@ -1,6 +1,7 @@
 #ifndef TOOLS_H
 #define TOOLS_H
 
+#include <stdio.h>
 #include <stdbool.h>
 
 #define ANSI_RESET   				"\033[0m"
@@ -34,7 +35,8 @@ void _p( PrintType type, const char *frmt, ... );
 bool exists_dir( const char *path );
 bool exists_file( const char *f_path );
 bool exists_cmd( const char *_cmd );
-
-
+char* shift_collect_to(	char **argv, int max, char *strl,	const char *del, int *to );
+void shift_to( char **argv, int max, char *strl,	const char *del, int *to );
+int print_file( FILE *stream, const char *f_name );
 
 #endif

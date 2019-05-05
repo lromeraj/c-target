@@ -16,16 +16,15 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 
+#define _VERSION "v0.7.2"
+
 enum { HELP_HEAD, HELP_BODY };
 
 void _kill( int errc );
 
-int strcmptok( const char *str, char *strl, const char *del );
 
-int print_file( FILE *stream, const char *f_name );
 int _rm( const char *f_path );
 
-bool read_bool_ans();
 
 void ascii_decorations();
 
@@ -59,64 +58,7 @@ int _clean();
 void _run();
 void _dist();
 void _ini();
-void _help();
-
-bool read_bool_ans() {
-	return false;
-}
-
-char* shift_collect_to(
-	char **argv,
-	int max,
-	char *strl,
-	const char *del,
-	int *to
-) {
-
-	int i, len;
-	char *_args;
-	char _buff[ 1024 ] = "";
-
-	for ( i=(*to+1); i<max; i++ ) {
-		if ( !strcmptok( argv[ i ], strl, del ) ) {
-			break;
-		} else {
-			strcat( _buff, argv[ i ] );
-			strcat( _buff, " " );
-		}
-	}
-
-	*to = --i;
-
-	_args = NULL;
-	len = strlen( _buff );
-
-	if ( len ) {
-		_args = (char*) malloc( (len+1)*sizeof( char ) );
-		strcpy( _args, _buff );
-	}
-
-	return _args;
-}
-
-void shift_to(
-	char **argv,
-	int max,
-	char *strl,
-	const char *del,
-	int *to
-) {
-
-	int i;
-
-	for ( i=(*to+1); i<max; i++ ) {
-		if ( !strcmptok( argv[ i ], strl, del ) )
-			break;
-	}
-
-	*to = --i;
-
-}
+void _help( int argc, char *argv[] );
 
 long _statmd( const char *f_path ) {
 
@@ -246,17 +188,7 @@ int main( int argc, char *argv[] ) {
 				sts = conf_load_env( CONF_FILE_NAME, argv[ i + 1 ] );
 
 				if ( !sts ) {
-
-					/* success */
-					/* print ascii decorations */
-					printf("%s", ANSI_FG_BPURPLE );
-					print_file( stdout, (char*)conf_get_pidx( ASCII_TITLE, 1 ) );
-					printf("%s", ANSI_RESET );
-
-					printf("%s", ANSI_FG_BYELLOW );
-					print_file( stdout, (char*)conf_get_pidx( ASCII_VERSION, 1 ) );
-					printf("%s", ANSI_RESET );
-
+					ascii_decorations();
 				} else if ( sts == 2 ) {
 					_p( _ERROR, "env: [%s] not found\n", argv[ i + 1 ] );
 				}
@@ -379,8 +311,8 @@ int main( int argc, char *argv[] ) {
 			_p( _TASK_END, "COMPILATION END" );
 
 		} else if ( !strcmptok( _arg, "-h,--help", "," ) ) {
+			_help( argc, argv );
 			argc=0;
-			_help();
 		} else {
 
 			_p( _WARN, "unknown option '%s'\n", _arg );
@@ -392,56 +324,6 @@ int main( int argc, char *argv[] ) {
 	_kill( 0 );
 
 	return EXIT_SUCCESS;
-}
-
-
-
-int print_file( FILE *stream, const char *f_path ) {
-
-	FILE *f;
-	char c;
-
-	if ( !f_path )
-		return 1;
-
-	f = fopen( f_path, "r" );
-
-	if ( !f )
-		return 2;
-
-	while ( fscanf( f, "%c", &c ) == 1 ) {
-		fprintf( stream, "%c", c );
-	}
-
-	fclose( f );
-
-	return 0;
-}
-
-int strcmptok(
-	const char *str,
-	char *strl,
-	const char *del
-) {
-
-	char *tok;
-	char _buff[1024];
-
-	if ( !str || !strl || !del )
-		return 1;
-
-	strncpy( _buff, strl, sizeof( _buff ) );
-	_buff[ sizeof( _buff ) - 1 ] = 0;
-
-	tok = strtok( _buff, del );
-
-	while ( tok ) {
-		if ( !strcmp( tok, str ) )
-			return 0;
-		tok = strtok( NULL, del );
-	}
-
-	return 1;
 }
 
 int _rm( const char *path ) {
@@ -967,26 +849,67 @@ int _comp() {
 
 }
 
-void _help() {
+void _help( int argc, char *argv[] ) {
 
 	Ui *ui;
-
+	char *arg;
 	ui = ui_init( 80, 22 );
 
 	ui_new_box( ui, HELP_HEAD, 0, 0, 80, 1 );
 	ui_new_box( ui, HELP_BODY, 0, 1, 80, 21 );
+	ui_box_put( ui, HELP_HEAD, "@{1;33}C-target@{0} by @{1;36}@lromeraj@{0} @{1}%s@{0}", _VERSION );
 
-	ui_box_put( ui, HELP_HEAD, "@{1;33}C-target@{0} by @{1;36}@lromeraj@{0} @{1}v0.9.1@{0}" );
-	ui_box_put( ui, HELP_BODY, "  @{1}-i, --init@{0}    Initializes a new project\n" );
-	ui_box_put( ui, HELP_BODY, "  @{1}-e, --env@{0}     Selects an environment\n" );
-	ui_box_put( ui, HELP_BODY, "  @{1}-c, --comp@{0}    Compiles an environment\n" );
-	ui_box_put( ui, HELP_BODY, "  @{1}-cl, --clean@{0}  Cleans an environment\n" );
-	ui_box_put( ui, HELP_BODY, "  @{1}-m, --cmem@{0}    Checks memory usage using valgrind\n" );
-	ui_box_put( ui, HELP_BODY, "  @{1}-d, --dist@{0}    Distributes an environment\n" );
-	ui_box_put( ui, HELP_BODY, "  @{1}-h, --help@{0}    Shows this helpdesk\n" );
+	if ( argc > 2 ) {
 
+		arg = argv[ 2 ];
 
-	ui_box_put( ui, HELP_BODY, "\nHelp is being improved for the next updates ... \n" );
+		ui_box_put( ui, HELP_BODY, "Help me with --> @{1;%d}%s@{0}\n", FG_PURPLE, arg );
+
+		if ( !strcmptok( arg, "-i,--init", "," ) ) {
+			ui_box_put( ui, HELP_BODY, "This flag says to C-target that you want to build a new @{1;3}C project@{0}.\n" );
+			ui_box_put( ui, HELP_BODY, "C-target will start by requesting you the project name.\n" );
+			ui_box_put( ui, HELP_BODY, "After this C-target will build a basic compilable project.\n" );
+			ui_box_put( ui, HELP_BODY, "A default @{33}target.conf@{0} file will be created, modify it at your own.\n");
+			ui_box_put( ui, HELP_BODY, "@{3}NOTE@{0}: if C-target detects a current working directory, it will reject the initialization.");
+		} else if ( !strcmptok( arg, "-r,--run", "," ) ) {
+			ui_box_put( ui, HELP_BODY, "This flag says to C-target that you want to execute the target of some environment.\n" );
+			ui_box_put( ui, HELP_BODY, "C-target will look for the next @{3}-e,--env@{0} and will collect every argument between them. ");
+			ui_box_put( ui, HELP_BODY, "If @{1}there is no argument@{0} C-target will use the default arguments @{1}defined in the configuration file@{0}.\n");
+			ui_box_put( ui, HELP_BODY, "If the executable does not exists C-target will alert about it" );
+		} else if ( !strcmptok( arg, "-d,--dist", "," ) ) {
+			ui_box_put( ui, HELP_BODY, "This flag says to C-target that you want to distribute some environment.\n" );
+			ui_box_put( ui, HELP_BODY, "C-target will look for the last version inside @{2}%s@{0} file.\n", conf_get_p_name( CLOG ) );
+			ui_box_put( ui, HELP_BODY, "\
+If you have a version definition following this regex @{2}v[0-9].*@{0}, \
+C-target will read that version, and it will update your @{2}%s@{0} decoration file.\n", conf_get_p_name( ASCII_VERSION ) );
+			ui_box_put( ui, HELP_BODY, "(@{33}figlet@{0} must be installed and accessible from your @{2}$PATH@{0})\n" );
+			ui_box_put( ui, HELP_BODY, "If C-target finds a version inside your @{2}%s@{0} file it will generate a zip named as `@{2}<%s>@{0}_@{2}<version>@{0}_@{2}<date>@{0}.zip`\n", conf_get_p_name( CLOG ), conf_get_p_name( TARGET ) );
+			ui_box_put( ui, HELP_BODY, "If C-target can't find a version, the zip will be named as\n`@{2}<%s>@{0}_@{2}<date>@{0}.zip`\n", conf_get_p_name( TARGET ) );
+		} else if ( !strcmptok( arg, "-c,--comp", "," ) ) {
+			ui_box_put( ui, HELP_BODY, "This flag says to C-target that you want to compile an environment.\n" );
+			ui_box_put( ui, HELP_BODY, "(@{33}gcc@{0} must be installed and accessible from your @{2}$PATH@{0})\n" );
+			ui_box_put( ui, HELP_BODY, "C-target will read your @{2}SRCS@{0} modules, if some of them needs to be compiled it will.\n" );
+			ui_box_put( ui, HELP_BODY, "If you have modified a file that is included in other files, these files will be compiled too.\n" );
+		} else {
+			ui_box_put( ui, HELP_BODY, "There are are no entries for '@{1;%d}%s@{0}'\n", FG_RED, arg );
+			ui_box_put( ui, HELP_BODY, "Try using other key words ..." );
+		}
+
+	} else {
+
+		ui_box_put( ui, HELP_BODY, "  @{1}-r, --run@{0}     Executes the target of the environment\n" );
+		ui_box_put( ui, HELP_BODY, "  @{1}-i, --init@{0}    Initializes a new project\n" );
+		ui_box_put( ui, HELP_BODY, "  @{1}-e, --env@{0}     Selects an environment\n" );
+		ui_box_put( ui, HELP_BODY, "  @{1}-c, --comp@{0}    Compiles an environment\n" );
+		ui_box_put( ui, HELP_BODY, "  @{1}-cl, --clean@{0}  Cleans an environment\n" );
+		ui_box_put( ui, HELP_BODY, "  @{1}-m, --cmem@{0}    Checks memory usage using valgrind\n" );
+		ui_box_put( ui, HELP_BODY, "  @{1}-d, --dist@{0}    Distributes an environment\n" );
+		ui_box_put( ui, HELP_BODY, "  @{1}-h, --help@{0}    Shows this helpdesk\n" );
+
+		ui_box_put( ui, HELP_BODY, "\nSee @{3;36}https://github.com/lromeraj/c-target@{0} for more information\n" );
+
+	}
+
 
 	ui_dump_box( ui, HELP_HEAD );
 	ui_dump_box( ui, HELP_BODY );
@@ -1000,14 +923,23 @@ void _help() {
 
 void ascii_decorations() {
 
-	/* print ascii decorations */
-	printf("%s", ANSI_FG_BPURPLE );
-	print_file( stdout, (char*)conf_get_pidx( ASCII_TITLE, 1 ) );
-	printf("%s", ANSI_RESET );
+	char *_ascii_t, *_ascii_v;
 
-	printf("%s", ANSI_FG_BYELLOW );
-	print_file( stdout, (char*)conf_get_pidx( ASCII_VERSION, 1 ) );
-	printf("%s", ANSI_RESET );
+	_ascii_t = conf_get_pidx( ASCII_TITLE, 1 );
+	_ascii_v = conf_get_pidx( ASCII_VERSION, 1 );
+
+	/* print ascii decorations */
+	if ( _ascii_t ) {
+		printf("%s", ANSI_FG_BPURPLE );
+		print_file( stdout, _ascii_t );
+		printf("%s", ANSI_RESET );
+	}
+
+	if ( _ascii_v ) {
+		printf("%s", ANSI_FG_BYELLOW );
+		print_file( stdout, _ascii_v );
+		printf("%s", ANSI_RESET );
+	}
 
 }
 

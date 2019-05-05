@@ -1,3 +1,4 @@
+#include "str.h"
 #include "tools.h"
 #include "conf.h"
 #include <unistd.h>
@@ -39,6 +40,83 @@ bool exists_file( const char *f_path ) {
 		return false;
 
 	return access( f_path, F_OK ) != -1 ? true : false;
+}
+
+char* shift_collect_to(
+	char **argv,
+	int max,
+	char *strl,
+	const char *del,
+	int *to
+) {
+
+	int i, len;
+	char *_args;
+	char _buff[ 1024 ] = "";
+
+	for ( i=(*to+1); i<max; i++ ) {
+		if ( !strcmptok( argv[ i ], strl, del ) ) {
+			break;
+		} else {
+			strcat( _buff, argv[ i ] );
+			strcat( _buff, " " );
+		}
+	}
+
+	*to = --i;
+
+	_args = NULL;
+	len = strlen( _buff );
+
+	if ( len ) {
+		_args = (char*) malloc( (len+1)*sizeof( char ) );
+		strcpy( _args, _buff );
+	}
+
+	return _args;
+}
+
+void shift_to(
+	char **argv,
+	int max,
+	char *strl,
+	const char *del,
+	int *to
+) {
+
+	int i;
+
+	for ( i=(*to+1); i<max; i++ ) {
+		if ( !strcmptok( argv[ i ], strl, del ) )
+			break;
+	}
+
+	*to = --i;
+
+}
+
+int print_file( FILE *stream, const char *f_path ) {
+
+	FILE *f;
+	char c;
+	int bytes;
+
+	if ( !f_path )
+		return 0;
+
+	bytes = 0;
+	f = fopen( f_path, "r" );
+
+	if ( !f )
+		return 0;
+
+	while ( fscanf( f, "%c", &c ) == 1 ) {
+		bytes+=fprintf( stream, "%c", c );
+	}
+
+	fclose( f );
+
+	return bytes;
 }
 
 void _p( PrintType type, const char *frmt, ... ) {
