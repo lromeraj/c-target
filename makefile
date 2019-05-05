@@ -5,7 +5,7 @@ OBJDIR = ./obj
 CFILES = $(wildcard $(SRCDIR)/*.c)
 OFILES = $(patsubst $(SRCDIR)/%.c, $(OBJDIR)/%.o, $(CFILES))
 
-all: ctarget
+all: clean ctarget
 
 ctarget: $(OFILES)
 	$(CC) -Wall $(OFILES) -o $@
@@ -16,5 +16,6 @@ $(OBJDIR)/%.o: $(SRCDIR)/%.c
 install: ctarget
 	sudo cp ctarget /usr/local/bin/
 
-clean: ctarget
-	./ctarget -e ctarget -cl
+clean:
+	rm -rf obj/*
+	rm -rf ctarget

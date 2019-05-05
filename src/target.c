@@ -1,6 +1,9 @@
 #include "ui.h"
 #include "str.h"
 #include "stack.h"
+#include "argv.h"
+#include "conf.h"
+#include "tools.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -9,108 +12,18 @@
 #include <stdarg.h>
 #include <unistd.h>
 #include <stdarg.h>
-#include <dirent.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/wait.h>
-#include <fcntl.h>
-
-#define ANSI_RESET   				"\033[0m"
-#define ANSI_FG_RED     		"\033[31m"
-#define ANSI_FG_GREEN   		"\033[32m"
-#define ANSI_FG_YELLOW  		"\033[33m"
-#define ANSI_FG_BLUE    		"\033[34m"
-#define ANSI_FG_PURPLE 			"\033[35m"
-#define ANSI_FG_WHITE 			"\033[97m"
-#define ANSI_FG_CYAN    		"\033[36m"
-
-#define ANSI_FG_BRED     		"\033[1;31m"
-#define ANSI_FG_BWHITE 			"\033[1;97m"
-#define ANSI_FG_BGREEN   		"\033[1;32m"
-#define ANSI_FG_BYELLOW  		"\033[1;33m"
-#define ANSI_FG_BBLUE    		"\033[1;34m"
-#define ANSI_FG_BPURPLE 		"\033[1;35m"
-#define ANSI_FG_BCYAN    		"\033[1;36m"
-
-#define MAX_CONFIG 50
-#define MAX_CHECKS 10
 
 enum { HELP_HEAD, HELP_BODY };
 
-typedef enum {
-	_ERROR,
-	_WARN,
-	_SUCCESS,
-	_INFO,
-	_NOTE,
-	_TASK_START,
-	_TASK_END
-} PrintType;
-
-typedef enum {
-	NONE,
-	TARGET,
-	TARGET_ARGS,
-	SRCDIR,
-	INCDIR,
-	OBJDIR,
-	DISTDIR,
-	DIST_IGNORE,
-	SRCS,
-	CLOG,
-	CFLAGS,
-	LDFLAGS,
-	VGR_FLAGS,
-	ASCII_TITLE,
-	ASCII_VERSION,
-	DEFAULT_ENV
-} Conf_p;
-
-typedef enum {
-	_NULL_CHECK=1,
-	_FILE_CHECK,
-	_DIR_CHECK,
-	_END_CHECK
-} Conf_check;
-
-typedef enum {
-	_STR_ARR,
-	_STR
-} ConfType;
-
-typedef struct _Argv {
-	char **_argv;
-	int _max, _n;
-} Argv;
-
 void _kill( int errc );
-
-void _p( PrintType type, const char *frmt, ... );
 
 int strcmptok( const char *str, char *strl, const char *del );
 
-void conf_alloc_p( Conf_p p, ... );
-void conf_free_p( Conf_p p );
-void* conf_get_p( Conf_p, ... );
-void conf_set_p( Conf_p p, ... );
-int conf_check_p( Conf_p, ... );
-void conf_free_all();
-void conf_upd( char **__data, int size );
-Conf_p conf_get_p_by_name( const char *_name );
-
-bool exists_dir( const char *path );
-bool exists_file( const char *f_path );
-bool exists_cmd( const char *_cmd );
-
-int env_load( const char*, const char* );
-
 int print_file( FILE *stream, const char *f_name );
 int _rm( const char *f_path );
-
-Argv* argv_build();
-void argv_add( Argv *_argv, const char *str );
-char** argv_get( Argv *_argv );
-void argv_free( Argv *_argv );
 
 bool read_bool_ans();
 
@@ -123,7 +36,6 @@ void basename( char *dest, char *src, size_t size ) {
 
 	if ( !dest || !src )
 		return;
-
 
 	len = strlen( src );
 	_str = (char*) malloc( (len+1)*sizeof( char ) );
@@ -140,8 +52,6 @@ void basename( char *dest, char *src, size_t size ) {
 
 	free( _str );
 }
-
-void strcln();
 
 int _comp();
 int _link();
@@ -208,61 +118,6 @@ void shift_to(
 
 }
 
-void strcln( char *str ) {
-
-	int len;
-
-	if ( !str )
-		return;
-
-	len = strlen( str );
-
-	str[ len ? len - 1 : 0 ] = 0;
-}
-
-bool exists_cmd( const char *_cmd ) {
-
-	int _sts;
-	char _buff[ 128 ];
-
-	sprintf( _buff, "command -v %s > /dev/null 2>&1 ", _cmd );
-	_sts = system( _buff );
-
-	return _sts ? false : true;
-}
-
-
-
-bool exists_dir( const char *path ) {
-
-	DIR *dir;
-	bool is;
-
-	if ( !path )
-		return false;
-
-	dir = opendir( path );
-	is = dir ? true : false;
-	closedir( dir );
-
-	return is;
-}
-
-bool exists_file( const char *f_path ) {
-
-	if ( !f_path )
-		return false;
-
-	return access( f_path, F_OK ) != -1 ? true : false;
-}
-
-/* ===== GLOBAL ===== */
-char ENV[100] = "";
-const char CONF_FILE_NAME[] = "target.conf";
-void *CONF_DATA[ MAX_CONFIG ];
-ConfType CONF_TYPE[ MAX_CONFIG ];
-char CONF_NAMES[ MAX_CONFIG ][ 128 ] = {{0}};
-
 long _statmd( const char *f_path ) {
 
 	time_t md;
@@ -292,8 +147,8 @@ void _run( const char *_args) {
 	if ( sts )
 		return;
 
-	_target = conf_get_p( TARGET, 1 );
-	_target_args = ((char**)CONF_DATA[ TARGET_ARGS ]);
+	_target = conf_get_pidx( TARGET, 1 );
+	_target_args = conf_get_p( TARGET_ARGS );
 
  	if ( !exists_file( _target ) ) {
 		_p( _WARN, "not compiled yet\n" );
@@ -341,53 +196,30 @@ int main( int argc, char *argv[] ) {
 
 	if ( _f ) fclose( _f );
 
-	/* set up configuration data */
-	for ( i=0; i<MAX_CONFIG; i++ ) {
-		CONF_DATA[ i ] = NULL;
-	}
-
-	/* set up configuration */
-	CONF_TYPE[ DEFAULT_ENV ] = _STR_ARR;
-	CONF_TYPE[ SRCDIR ] = _STR_ARR;
-	CONF_TYPE[ INCDIR ] = _STR_ARR;
-	CONF_TYPE[ OBJDIR ] = _STR_ARR;
-	CONF_TYPE[ DISTDIR ] = _STR_ARR;
-	CONF_TYPE[ DIST_IGNORE ] = _STR_ARR;
-	CONF_TYPE[ CFLAGS ] = _STR_ARR;
-	CONF_TYPE[ LDFLAGS ] = _STR_ARR;
-	CONF_TYPE[ SRCS ] = _STR_ARR;
-	CONF_TYPE[ TARGET ] = _STR_ARR;
-	CONF_TYPE[ TARGET_ARGS ] = _STR_ARR;
-	CONF_TYPE[ VGR_FLAGS ] = _STR_ARR;
-	CONF_TYPE[ ASCII_VERSION ] = _STR_ARR;
-	CONF_TYPE[ ASCII_TITLE ] = _STR_ARR;
-	CONF_TYPE[ CLOG ] = _STR_ARR;
-
-	strcpy( CONF_NAMES[ DEFAULT_ENV ], "DEFAULT_ENV" );
-	strcpy( CONF_NAMES[ SRCDIR ], "SRCDIR" );
-	strcpy( CONF_NAMES[ INCDIR ], "INCDIR" );
-	strcpy( CONF_NAMES[ OBJDIR ], "OBJDIR" );
-	strcpy( CONF_NAMES[ DISTDIR ], "DISTDIR" );
-	strcpy( CONF_NAMES[ DIST_IGNORE ], "DIST_IGNORE" );
-	strcpy( CONF_NAMES[ CFLAGS ], "CFLAGS" );
-	strcpy( CONF_NAMES[ LDFLAGS ], "LDFLAGS" );
-	strcpy( CONF_NAMES[ SRCS ], "SRCS" );
-	strcpy( CONF_NAMES[ TARGET ], "TARGET" );
-	strcpy( CONF_NAMES[ TARGET_ARGS ], "TARGET_ARGS" );
-	strcpy( CONF_NAMES[ VGR_FLAGS ], "VGR_FLAGS" );
-	strcpy( CONF_NAMES[ ASCII_VERSION ], "ASCII_VERSION" );
-	strcpy( CONF_NAMES[ ASCII_TITLE ], "ASCII_TITLE" );
-	strcpy( CONF_NAMES[ CLOG ], "CLOG" );
+	conf_set_p_name( DEFAULT_ENV, "DEFAULT_ENV" );
+	conf_set_p_name( SRCDIR, "SRCDIR" );
+	conf_set_p_name( INCDIR, "INCDIR" );
+	conf_set_p_name( OBJDIR, "OBJDIR" );
+	conf_set_p_name( DISTDIR, "DISTDIR" );
+	conf_set_p_name( DIST_IGNORE, "DIST_IGNORE" );
+	conf_set_p_name( CFLAGS, "CFLAGS" );
+	conf_set_p_name( LDFLAGS, "LDFLAGS" );
+	conf_set_p_name( TARGET, "TARGET" );
+	conf_set_p_name( TARGET_ARGS, "TARGET_ARGS" );
+	conf_set_p_name( VGR_FLAGS, "VGR_FLAGS" );
+	conf_set_p_name( ASCII_VERSION, "ASCII_TITLE" );
+	conf_set_p_name( CLOG, "CLOG" );
+	conf_set_p_name( SRCS, "SRCS" );
 
 	/* load by default global configuration */
-	env_load( CONF_FILE_NAME, "GLOBAL" );
+	conf_load_env( CONF_FILE_NAME, "GLOBAL" );
 
 	/* load default environment if it is defined */
-	_str = conf_get_p( DEFAULT_ENV, 1 );
+	_str = conf_get_pidx( DEFAULT_ENV, 1 );
 
 	if ( _str && strcmptok( argv[ 1 ], "-e,--env,-i,--init,-h,--help", "," ) ) {
 
-		sts = env_load( CONF_FILE_NAME, _str );
+		sts = conf_load_env( CONF_FILE_NAME, _str );
 
 		if ( !sts ) {
 			_p( _INFO, "using [%s%s%s] as default environment\n", ANSI_FG_YELLOW, _str, ANSI_RESET );
@@ -410,18 +242,18 @@ int main( int argc, char *argv[] ) {
 				shift_to( argv, argc, "-e,--env", ",", &i );
 			} else {
 
-				sts = env_load( CONF_FILE_NAME, argv[ i + 1 ] );
+				sts = conf_load_env( CONF_FILE_NAME, argv[ i + 1 ] );
 
 				if ( !sts ) {
 
 					/* success */
 					/* print ascii decorations */
 					printf("%s", ANSI_FG_BPURPLE );
-					print_file( stdout, (char*)conf_get_p( ASCII_TITLE, 1 ) );
+					print_file( stdout, (char*)conf_get_pidx( ASCII_TITLE, 1 ) );
 					printf("%s", ANSI_RESET );
 
 					printf("%s", ANSI_FG_BYELLOW );
-					print_file( stdout, (char*)conf_get_p( ASCII_VERSION, 1 ) );
+					print_file( stdout, (char*)conf_get_pidx( ASCII_VERSION, 1 ) );
 					printf("%s", ANSI_RESET );
 
 				} else if ( sts == 2 ) {
@@ -455,17 +287,17 @@ int main( int argc, char *argv[] ) {
 				strcpy( _cmd, "valgrind " );
 
 				j=1;
-				_str = conf_get_p( VGR_FLAGS, j );
+				_str = conf_get_pidx( VGR_FLAGS, j );
 
 				while ( _str ) {
 					strcat( _cmd, _str );
 					strcat( _cmd, " " );
 					j++;
-					_str = conf_get_p( VGR_FLAGS, j );
+					_str = conf_get_pidx( VGR_FLAGS, j );
 				}
 
 				strcat( _cmd, " ./" );
-				strcat( _cmd, conf_get_p( TARGET, 1 ) );
+				strcat( _cmd, conf_get_pidx( TARGET, 1 ) );
 				strcat( _cmd, " " );
 
 				_str = shift_collect_to( argv, argc, "-e,--env", ",", &i );
@@ -477,13 +309,13 @@ int main( int argc, char *argv[] ) {
 				} else {
 
 					j=1;
-					_str = conf_get_p( TARGET_ARGS, j );
+					_str = conf_get_pidx( TARGET_ARGS, j );
 
 					while ( _str ) {
 						strcat( _cmd, _str );
 						strcat( _cmd, " " );
 						j++;
-						_str = conf_get_p( TARGET_ARGS, j );
+						_str = conf_get_pidx( TARGET_ARGS, j );
 					}
 
 				}
@@ -531,7 +363,7 @@ int main( int argc, char *argv[] ) {
 				if ( sts == 0 ) {
 
 					if ( _link() == 0 ) {
-						_p( _SUCCESS, "link success -> %s%s%s\n", ANSI_FG_BCYAN, (char*)conf_get_p( TARGET, 1 ), ANSI_RESET );
+						_p( _SUCCESS, "link success -> %s%s%s\n", ANSI_FG_BCYAN, (char*)conf_get_pidx( TARGET, 1 ), ANSI_RESET );
 					} else {
 						_p( _ERROR, "link failed\n" );
 					}
@@ -561,153 +393,7 @@ int main( int argc, char *argv[] ) {
 	return EXIT_SUCCESS;
 }
 
-void conf_free_all() {
-	int i;
-	for ( i=0; i<MAX_CONFIG; i++ ) {
-		conf_free_p( i );
-	}
-}
 
-void conf_alloc_p( Conf_p p, ... ) {
-
-	int i, q;
-	va_list _list;
-
-	if ( p < 0 || p >= MAX_CONFIG )
-		return;
-
-	conf_free_p( p );
-
-	va_start( _list, p );
-
-	if ( CONF_TYPE[ p ] == _STR_ARR ) {
-		q = va_arg( _list, int )+1;
-		CONF_DATA[ p ] = (char**)malloc( q*sizeof(char*) );
-		for (i=0; i<q; i++) {
-			((char**)CONF_DATA[ p ])[ i ] = NULL;
-		}
-	}
-
-	va_end( _list );
-
-}
-
-
-void conf_set_p( Conf_p p, ... ) {
-
-	int idx, len;
-	char *str;
-	va_list _list;
-	char **__arr;
-
-	if ( !CONF_DATA[ p ] || p < 0 || p >= MAX_CONFIG )
-		return;
-
-	va_start( _list, p );
-
-	if ( CONF_TYPE[ p ] == _STR_ARR ) {
-		idx = va_arg( _list, int );
-		str = va_arg( _list, char* );
-		len = strlen( str );
-
-		__arr = ((char**)CONF_DATA[ p ]);
-
-		if ( __arr[ idx ] ) {
-			free( __arr[ idx ] );
-		}
-		__arr[ idx ] = (char*)malloc( (len+1)*sizeof( char ) );
-
-		if ( __arr[ idx ] ) {
-			strcpy( __arr[ idx ], str );
-		}
-
-	}
-
-	va_end( _list );
-
-}
-
-Conf_p conf_get_p_by_name( const char *_name ) {
-
-	int i;
-	Conf_p _p;
-
-	if ( !_name )
-		return NONE;
-
-	_p = NONE;
-
-	for ( i=0; i<MAX_CONFIG; i++ ) {
-		if ( !strcmp( CONF_NAMES[ i ], _name ) ) {
-			_p = (Conf_p)i;
-			break;
-		}
-	}
-
-	return _p;
-}
-
-void* conf_get_p( Conf_p p, ... ) {
-
-	int i, idx;
-	void *vp;
-	va_list _list;
-
-	if ( !CONF_DATA[ p ] || p < 0 || p >= MAX_CONFIG )
-		return NULL;
-
-	vp = NULL;
-	va_start( _list, p );
-
-	if ( CONF_TYPE[ p ] == _STR_ARR ) {
-
-		if ( CONF_DATA[ p ] ) {
-
-			idx = va_arg( _list, int );
-			i = 0;
-			while ( i != idx ) {
-
-				if ( !((char**)CONF_DATA[ p ])[ i ] ) {
-					break;
-				} else {
-					i++;
-				}
-			}
-
-			vp = ((char**)CONF_DATA[ p ])[ i ];
-
-		}
-
-
-	}
-
-	va_end( _list );
-
-	return vp;
-
-}
-
-void conf_free_p( Conf_p p ) {
-
-	int i;
-
-	if ( p < 0 || p >= MAX_CONFIG )
-		return;
-
-	if ( CONF_TYPE[ p ] == _STR_ARR ) {
-
-		if ( CONF_DATA[ p ] ) {
-
-			for (i=0; ((char**)CONF_DATA[p])[i]; i++) {
-				free( ((char**)CONF_DATA[p])[i] );
-			}
-
-			free( CONF_DATA[ p ] );
-		}
-
-	}
-
-}
 
 int print_file( FILE *stream, const char *f_path ) {
 
@@ -729,95 +415,6 @@ int print_file( FILE *stream, const char *f_path ) {
 	fclose( f );
 
 	return 0;
-}
-
-int conf_check_p( Conf_p p, ... ) {
-
-	int i, j, sts;
-	void *data;
-	char *str;
-	va_list _list;
-	Conf_check chk;
-	int to_check[ MAX_CHECKS ] = {0};
-
-	if ( p < 0 || p >= MAX_CONFIG )
-		return -1;
-
-	data = CONF_DATA[ p ];
-	sts = 0;
-
-	va_start( _list, p );
-
-	chk = va_arg( _list, Conf_check );
-
-	while ( chk != _END_CHECK ) {
-
-		if ( chk >= 0 && chk < MAX_CHECKS ) {
-			to_check[ chk ] = 1;
-		}
-		chk = va_arg( _list, Conf_check );
-	}
-
-	for ( i=0; i < MAX_CHECKS; i++ ) {
-
-		j = to_check[ i ];
-		if ( j != 1 ) continue;
-
-		if ( i == _NULL_CHECK ) {
-
-			if ( !data ) {
-				sts = _NULL_CHECK;
-				_p( _ERROR, "$%s is not defined\n", CONF_NAMES[ p ] );
-				break;
-			}
-
-		}
-
-		str = conf_get_p( p, 1 );
-
-		if ( str ) {
-
-			if ( i == _FILE_CHECK && !exists_file( str ) ) {
-				sts = _FILE_CHECK;
-				_p( _ERROR, "%s: '%s' no such file\n", CONF_NAMES[ p ], str );
-			}
-
-			if ( i == _DIR_CHECK && !exists_dir( str ) ) {
-				sts = _DIR_CHECK;
-				_p( _ERROR, "%s: '%s' no such directory\n", CONF_NAMES[ p ], str );
-			}
-
-		}
-
-	}
-
-	va_end( _list );
-
-	return sts;
-}
-
-void conf_upd( char **__data, int size ) {
-
-	Conf_p p;
-	char *pn; /* parameter name */
-
-	p = NONE;
-
-	if ( !__data )
-		return;
-
-	pn = __data[ 0 ];
-
-	p = conf_get_p_by_name( pn );
-
-	if ( p == NONE )
-		return;
-
-	if ( CONF_TYPE[ p ] == _STR_ARR ) {
-		conf_free_p( p );
-		CONF_DATA[ p ] = __data;
-	}
-
 }
 
 int strcmptok(
@@ -845,245 +442,6 @@ int strcmptok(
 
 	return 1;
 }
-
-int env_load( const char *f_name, const char *env ) {
-
-	/* !!! IMPROVE THIS PARSER */
-
-	FILE *cf;
-
-	int i, j,
-			sts,
-			vi, /* value index */
-			len; /* used for string lengths */
-	char c;
-	Conf_p _p; /* conf parameter */
-	char _line[ 1024 ] = "";
-	char _sbuff[ 1024 ] = "";
-	char _vbuff[ 100 ][ 256 ] = {{0}};
-	bool	envSearch, /* environment search process */
-				addChar, /* indicates is a char shold be added to the buffer */
-				isArr, /* indicates if the current value is an array */
-				isStr, /* indicates if the current value is a string */
-				pend; /* indicates the end of a parameter */
-
-	cf = fopen( f_name, "r" );
-
-	if ( !cf )
-		return -1;
-
-	vi=0;
-	sts=0;
-	pend=false;
-	isArr=false;
-	isStr=false;
-	envSearch = true;
-	_p = NONE;
-
-	while ( fgets( _line, sizeof( _line ), cf ) ) {
-
-		_line[ strlen( _line ) - 1 ] = 0; /* cleans \n */
-
-		/* env search */
-		if ( envSearch ) {
-
-			if ( !strncmp( _line, "[", 1 ) ) {
-
-				i=1; j=0;
-				while ( _line[ i ] != ']' ) {
-
-					_sbuff[ j ] = _line[ i ];
-					_sbuff[ j + 1 ] = 0;
-					j++;
-					i++;
-				}
-
-				if ( !strcmp( _sbuff, env ) ) {
-					envSearch = false;
-					j=0;
-				}
-
-			}
-			continue;
-		}
-
-		/* stop parsing when other environment starts */
-		if ( !envSearch && !strncmp( _line, "[", 1 ) ) {
-			break;
-		}
-
-		len = strlen( _line ); /* get the length of the line */
-
-
-		for (i=0; i<=len; i++) {
-
-			c = _line[ i ];
-			addChar = true;
-
-			if ( c == '#' && !isStr ) {
-				i = len;
-				addChar = false;
-			}
-
-			if ( c == '=' && vi == 0 && !isStr ) {
-				vi=1;
-				j=0;
-				addChar = false;
-			}
-
-			if ( c == ' ' || c == '\t' ) {
-				addChar = false;
-			}
-
-			if ( c == '[' ) {
-				isArr=true;
-				addChar=false;
-			}
-
-			if ( c == ']' ) {
-				isArr=false;
-				addChar=false;
-				pend = true;
-			}
-
-			if ( c == ',' && isArr && !isStr ) {
-				vi++;
-				j=0;
-				addChar = false;
-			}
-
-			if ( c == '"' ) {
-				isStr = !isStr;
-				addChar = false;
-			}
-
-			if ( isStr && c != '"' ) addChar = true;
-
-			if ( c == '\0' || c == ' ' || c == '#' ) {
-
-				if ( _vbuff[ 1 ][ 0 ] != '\0' && vi == 1 && !isStr && !isArr ) {
-					pend = true;
-					addChar = false;
-				}
-
-			}
-
-			if ( addChar && c ) {
-				_vbuff[ vi ][ j ] = c;
-				_vbuff[ vi ][ j + 1 ] = 0;
-				j++;
-			}
-
-			if ( pend ) {
-
-				vi++;
-				_p = conf_get_p_by_name(  _vbuff[ 0 ] );
-
-				if ( _p != NONE ) {
-
-					conf_alloc_p( _p, vi );
-
-					for ( j=0; j<vi; j++ ) {
-						conf_set_p( _p, j, _vbuff[ j ] );
-					}
-
-				}
-
-				/* clean buffers */
-				for ( j=0; j<vi; j++ ) {
-					_vbuff[ j ][ 0 ] = 0;
-				}
-				_sbuff[0] = 0;
-
-				/* reset flags */
-				j=0;
-				vi=0;
-				isArr=false;
-				isStr=false;
-				pend=false;
-				addChar = false;
-			}
-
-		}
-
-	}
-
-	if ( envSearch ) {
-		sts = 2;
-	} else {
-		strcpy( ENV, env );
-	}
-
-	fclose( cf );
-
-	return sts;
-}
-
-void argv_free( Argv *argv ) {
-
-	int i;
-
-	if ( !argv )
-		return;
-
-	if ( argv->_argv ) {
-		for ( i=0; i < argv->_n; i++ ) {
-			free( argv->_argv[ i ] );
-			argv->_argv[ i ] = NULL;
-		}
-		free( argv->_argv );
-	}
-
-	free( argv );
-
-}
-
-Argv* argv_build( int q ) {
-
-	int i;
-	Argv *argv;
-
-	argv = (Argv*) malloc( sizeof( Argv ) );
-
-	if ( argv ) {
-		argv->_argv = (char**)malloc( q*sizeof( char* ) );
-		if ( argv->_argv ) {
-			for (i=0; i<q; i++) {
-				argv->_argv[ i ] = NULL;
-			}
-			argv->_n = 0;
-			argv->_max = q;
-
-		} else {
-			argv_free( argv );
-		}
-	}
-
-	return argv;
-}
-
-void argv_add( Argv *argv, const char *str ) {
-
-	int len;
-	if ( !argv || !str )
-		return;
-
-	if ( argv->_n+1 < argv->_max ) {
-		len = strlen( str );
-		argv->_argv[ argv->_n ] = (char*) malloc( (len+1)*sizeof(char) );
-		strcpy( argv->_argv[ argv->_n ], str );
-		argv->_n++;
-	}
-
-}
-
-char** argv_get( Argv *argv ) {
-	if ( !argv )
-		return NULL;
-
-	return argv->_argv;
-}
-
 
 int _rm( const char *path ) {
 
@@ -1115,9 +473,9 @@ int _rm( const char *path ) {
 int _clean() {
 
 	int i;
-	char *_obj = conf_get_p( OBJDIR, 1 );
-	char *_target = conf_get_p( TARGET, 1 );
-	char **_srcs = ((char**)CONF_DATA[ SRCS ]);
+	char *_obj = conf_get_pidx( OBJDIR, 1 );
+	char *_target = conf_get_pidx( TARGET, 1 );
+	char **_srcs = conf_get_p( SRCS );
 	char file_o[ 128 ] = ""; /* temporary object file name */
 
 	if ( _target ) {
@@ -1139,21 +497,36 @@ int _clean() {
 
 int _link( ) {
 
-	int i, sts;
-	pid_t pid; /* process id */
-	char *_obj = conf_get_p( OBJDIR, 1 );
-	char *_target = conf_get_p( TARGET, 1 );
-	char **_srcs = ((char**)CONF_DATA[ SRCS ]);
-	char **_ldflags = ((char**)CONF_DATA[ LDFLAGS ]);
+	int q, i, sts;
+	char *_obj = conf_get_pidx( OBJDIR, 1 );
+	char *_target = conf_get_pidx( TARGET, 1 );
+	char **_srcs = conf_get_p( SRCS );
+	char **_ldflags = conf_get_p( LDFLAGS );
 	char file_o[ 128 ] = ""; /* temporary object file name */
 	Argv *_argv;
+	char *cmd;
 
-	_argv = argv_build( 50 );
+	sts = 0;
+
+	sts+=conf_check_p( SRCS, _NULL_CHECK, _END_CHECK );
+
+	if ( sts )
+	 	return 1;
+
+	q = 10;
+
+	if ( _ldflags ) {
+		for ( i=0; _ldflags[ i ]; i++, q++ );
+	}
+	for ( i=0; _srcs[ i ]; i++, q++ );
+
+
+	_argv = argv_build( q );
 
 	argv_add( _argv, "gcc" );
 	argv_add( _argv, "-fdiagnostics-color=always" );
 
-	for (i=1; _srcs[ i ]; i++ ) {
+	for ( i=1; _srcs[ i ]; i++ ) {
 		sprintf( file_o, "%s/%s.o", _obj, _srcs[ i ] );
 		argv_add( _argv, file_o );
 	}
@@ -1167,12 +540,13 @@ int _link( ) {
 	argv_add( _argv, "-o" );
 	argv_add( _argv, _target );
 
-	sts = 0;
-	pid = fork();
-	if ( pid == 0 ) {
-		execv( "/usr/bin/gcc", argv_get( _argv ) );
+	cmd = argv_strlist( _argv );
+
+	if ( cmd ) {
+		sts = system( cmd );
+		str_destroy( cmd );
 	} else {
-		waitpid( pid, &sts, 0 );
+		sts = 1;
 	}
 
 	argv_free( _argv );
@@ -1207,10 +581,10 @@ void _dist() {
 	t = time(NULL);
 	tm = *localtime(&t);
 
-	_ignore = ((char**)CONF_DATA[ DIST_IGNORE ] );
-	_target = conf_get_p( TARGET, 1 );
-	_dist = conf_get_p( DISTDIR, 1 );
-	_clog = conf_get_p( CLOG, 1 );
+	_ignore = conf_get_p( DIST_IGNORE );
+	_target = conf_get_pidx( TARGET, 1 );
+	_dist = conf_get_pidx( DISTDIR, 1 );
+	_clog = conf_get_pidx( CLOG, 1 );
 
 	getcwd( _dir, sizeof( _dir ) );
 	basename( _dir, _dir, sizeof( _dir ) );
@@ -1229,7 +603,7 @@ void _dist() {
 
 	if ( _v[0] ) {
 
-		_ascii_v = conf_get_p( ASCII_VERSION, 1 );
+		_ascii_v = conf_get_pidx( ASCII_VERSION, 1 );
 
 
 		if ( exists_cmd( "figlet" ) && exists_file( _ascii_v ) ) {
@@ -1283,7 +657,7 @@ void _dist() {
 			sprintf( _cmd, "mv %s %s", _zname, _dist );
 			system( _cmd );
 		} else {
-			_p( _WARN, "DISTDIR was ignored\n", CONF_NAMES[ DISTDIR ] );
+			_p( _WARN, "%s was ignored\n", conf_get_p_name( DISTDIR ) );
 		}
 
 	} else {
@@ -1444,12 +818,12 @@ int _comp() {
 	sts += conf_check_p( OBJDIR, _NULL_CHECK, _DIR_CHECK, _END_CHECK );
 	sts += conf_check_p( SRCS, _NULL_CHECK, _END_CHECK );
 
-	_inc = conf_get_p( INCDIR, 1 );
-	_src = conf_get_p( SRCDIR, 1 );
-	_obj = conf_get_p( OBJDIR, 1 );
-	_target = conf_get_p( TARGET, 1 );
-	_srcs = ((char**)CONF_DATA[ SRCS ]);
-	_cflags = ((char**)CONF_DATA[ CFLAGS ]);
+	_inc = conf_get_pidx( INCDIR, 1 );
+	_src = conf_get_pidx( SRCDIR, 1 );
+	_obj = conf_get_pidx( OBJDIR, 1 );
+	_target = conf_get_pidx( TARGET, 1 );
+	_srcs = conf_get_p( SRCS );
+	_cflags = conf_get_p( CFLAGS );
 
 	if ( _inc ) {
 
@@ -1462,10 +836,10 @@ int _comp() {
 
 		/* clone SRCDIR into INCDIR */
 		conf_alloc_p( INCDIR, 2 );
-		conf_set_p( INCDIR, 0, CONF_NAMES[ INCDIR ] );
+		conf_set_p( INCDIR, 0, conf_get_p_name( INCDIR ) );
 		conf_set_p( INCDIR, 1, _src );
-		_inc = conf_get_p( INCDIR, 1 );
-		_p( _WARN, "using %s as %s%s%s\n", CONF_NAMES[ INCDIR ], ANSI_FG_CYAN, _src, ANSI_RESET );
+		_inc = conf_get_pidx( INCDIR, 1 );
+		_p( _WARN, "using %s as %s%s%s\n", conf_get_p_name( INCDIR ), ANSI_FG_CYAN, _src, ANSI_RESET );
 
 	}
 
@@ -1592,44 +966,6 @@ int _comp() {
 
 }
 
-void _p( PrintType type, const char *frmt, ... ) {
-
-	va_list _list;
-	char _buff[ 1024 ];
-
-	va_start( _list, frmt );
-	vsprintf( _buff, frmt, _list );
-	va_end( _list );
-
-	switch ( type ) {
-
-		case _ERROR:
-			printf( "%serror%s: %s", ANSI_FG_BRED, ANSI_RESET, _buff );
-			break;
-		case _SUCCESS:
-			printf( "%ssuccess%s: %s", ANSI_FG_BGREEN, ANSI_RESET, _buff );
-			break;
-		case _INFO:
-			printf( "%sinfo%s: %s", ANSI_FG_BCYAN, ANSI_RESET, _buff );
-			break;
-		case _WARN:
-			printf( "%swarn%s: %s", ANSI_FG_BYELLOW, ANSI_RESET, _buff );
-			break;
-		case _TASK_START:
-			printf("======== [%s%s%s] %s%s%s\n", ANSI_FG_BPURPLE, ENV, ANSI_RESET, ANSI_FG_BGREEN, _buff, ANSI_RESET );
-			break;
-		case _NOTE:
-			printf("%snote%s: %s%s", ANSI_FG_BPURPLE, ANSI_RESET, _buff, ANSI_RESET );
-			break;
-		case _TASK_END:
-			printf("======== [%s%s%s] %s%s%s\n", ANSI_FG_BPURPLE, ENV, ANSI_RESET, ANSI_FG_BRED, _buff, ANSI_RESET );
-			break;
-	}
-
-	fflush( stdout );
-
-}
-
 void _help() {
 
 	Ui *ui;
@@ -1665,11 +1001,11 @@ void ascii_decorations() {
 
 	/* print ascii decorations */
 	printf("%s", ANSI_FG_BPURPLE );
-	print_file( stdout, (char*)conf_get_p( ASCII_TITLE, 1 ) );
+	print_file( stdout, (char*)conf_get_pidx( ASCII_TITLE, 1 ) );
 	printf("%s", ANSI_RESET );
 
 	printf("%s", ANSI_FG_BYELLOW );
-	print_file( stdout, (char*)conf_get_p( ASCII_VERSION, 1 ) );
+	print_file( stdout, (char*)conf_get_pidx( ASCII_VERSION, 1 ) );
 	printf("%s", ANSI_RESET );
 
 }

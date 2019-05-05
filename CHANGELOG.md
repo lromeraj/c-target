@@ -1,3 +1,7 @@
+## v0.5.4
+`[FIXES]`
+- Minor bug fixes.
+
 ## v0.5.3
 `[FIXES]`
 - Fixed a bug that caused parsing errors 

@@ -60,3 +60,16 @@ int str_print( FILE *stream, const char *str ) {
   i+=fprintf( stream, "%s", str );
   return i;
 }
+
+
+void strcln( char *str ) {
+
+	int len;
+
+	if ( !str )
+		return;
+
+	len = strlen( str );
+
+	str[ len ? len - 1 : 0 ] = 0;
+}

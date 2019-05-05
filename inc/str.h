@@ -10,5 +10,6 @@ char* str_clone( const char *str );
 void str_sdestroy( char **str );
 void str_destroy( char *str );
 int str_print( FILE *stream, const char *str );
+void strcln( char *str );
 
 #endif
