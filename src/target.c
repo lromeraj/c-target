@@ -207,7 +207,8 @@ int main( int argc, char *argv[] ) {
 	conf_set_p_name( TARGET, "TARGET" );
 	conf_set_p_name( TARGET_ARGS, "TARGET_ARGS" );
 	conf_set_p_name( VGR_FLAGS, "VGR_FLAGS" );
-	conf_set_p_name( ASCII_VERSION, "ASCII_TITLE" );
+	conf_set_p_name( ASCII_TITLE, "ASCII_TITLE" );
+	conf_set_p_name( ASCII_VERSION, "ASCII_VERSION" );
 	conf_set_p_name( CLOG, "CLOG" );
 	conf_set_p_name( SRCS, "SRCS" );
 
