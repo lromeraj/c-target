@@ -1,3 +1,5 @@
+#define _DEFAULT_SOURCE
+
 #include "ui.h"
 #include "str.h"
 #include "stack.h"
@@ -15,6 +17,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+
 
 #define _VERSION "v0.7.2"
 
@@ -57,7 +60,7 @@ int _link();
 int _clean();
 void _run();
 void _dist();
-void _ini();
+void _ini( char *opts );
 void _help( int argc, char *argv[] );
 
 long _statmd( const char *f_path ) {
@@ -276,8 +279,15 @@ int main( int argc, char *argv[] ) {
 
 		} else if ( !strcmptok( _arg, "-i,--init", "," ) ) {
 
+			/* collect all */
+			_str = shift_collect_to( argv, argc, NULL, NULL, &i );
+
 			argc=0;
-			_ini();
+			_ini( _str ); /* send flags to ini function */
+
+			if ( _str ) {
+				free( _str );
+			}
 
 		} else if ( !strcmptok( _arg, "-cl,--clean", "," ) ) {
 
@@ -551,7 +561,7 @@ void _dist() {
 
 }
 
-void _ini() {
+void _ini( char *opts ) {
 
 	FILE *_f;
 	char _cmd[ 2048 ];
@@ -561,6 +571,7 @@ void _ini() {
 	char _dist[ 128 ] = "./out";
 	char _ascii_v[ 128 ] = "./.ascii_version";
 	char _ascii_t[ 128 ] = "./.ascii_title";
+	char _install_dir[ 128 ] = "/usr/share/ctarget/";
 	char _name[ 16 ];
 	char _env[ 128 ] = "main_env";
 	char _v[ 64 ] = "v0.0.1";
@@ -589,7 +600,7 @@ void _ini() {
 
 	_p( _INFO, "building project structure ... \n");
 
-	sprintf( _cmd, "mkdir -p c-target %s %s %s %s", _src, _inc, _obj, _dist );
+	sprintf( _cmd, "mkdir -p %s %s %s %s", _src, _inc, _obj, _dist );
 	system( _cmd );
 
 	_p( _INFO, "generating %s%s%s ... \n", ANSI_FG_YELLOW, CONF_FILE_NAME, ANSI_RESET );
@@ -625,25 +636,14 @@ void _ini() {
 
 	fclose( _f );
 
-	sprintf( _buff, "%s/main.c", _src );
-	_f = fopen( _buff, "w" );
-
-	if ( _f ) {
-
-		_p( _INFO, "generating main file %s%s%s ... \n", ANSI_FG_YELLOW, _buff, ANSI_RESET );
-
-		fprintf( _f, "#include <stdlib.h>\n");
-		fprintf( _f, "#include <stdio.h>\n\n");
-
-		fprintf( _f, "int main()\n" );
-		fprintf( _f, "{\n" );
-		fprintf( _f, "	printf(\"let's build awesome code!\\n\");\n" );
-		fprintf( _f, "	return 0;\n" );
-		fprintf( _f, "}\n" );
-
-		fclose( _f );
-
+	if ( find_word( opts, "--makefile" ) ) {
+		sprintf( _cmd, "cp %s/src/defs/makefile .", _install_dir );
+		system( _cmd );
 	}
+
+	_p( _INFO, "generating main.c file %s%s%s ... \n", ANSI_FG_YELLOW, _buff, ANSI_RESET );
+	sprintf( _cmd, "cp %s/src/defs/main.c %s/", _install_dir, _src );
+	system( _cmd );
 
 	_f = fopen( _clog, "w" );
 

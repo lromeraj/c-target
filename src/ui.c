@@ -14,8 +14,6 @@
 #include <stdbool.h>
 #include <time.h>
 
-#define DEBUG
-
 #define DEFAULT_TXT_BG_COLOR BG_WHITE
 #define DEFAULT_TXT_FG_COLOR FG_BLACK
 #define DEFAULT_TXT_FORMAT S_DEFAULT
@@ -31,8 +29,8 @@
 
 #define UI_MAX_FRM_LEN ( UI_MAX_FRM + 2 )  /*!< @brief Maximum length of the format array */
 
-#define __frmidx( __frm ) ( __frm[ UI_MAX_FRM_LEN - 2 ] ) /* get the destination index of the format */
-#define __frmxor( __frm ) ( __frm[ UI_MAX_FRM_LEN - 1 ] ) /* get the checksum of the format */
+#define __frmidx( __frm ) ( __frm[ UI_MAX_FRM_LEN - 2 ] ) /*!< @brief get the destination index of the format */
+#define __frmxor( __frm ) ( __frm[ UI_MAX_FRM_LEN - 1 ] ) /*!< @brief get the checksum of the format */
 
 /*!
 * @brief Basic pixel structure
@@ -43,8 +41,8 @@ struct _Ui_pix {
 };
 
 struct _Ui_cpix {
-  int csum;
-  char sfrm[ UI_MAX_SFRM_LEN ];
+  int csum; /*!< @brief Format checksum */
+  char sfrm[ UI_MAX_SFRM_LEN ]; /*!< @brief String cache format */
 };
 
 /*!
@@ -60,6 +58,7 @@ struct _Ui_box {
   int cx; /*!< @brief Position of the 'x' cursor */
   int cy;  /*!< @brief Position of the 'y' cursor */
   int cx_off; /*!< @brief Offset for the 'x' cursor */
+  int cx_top; /*!< @brief Limit for the 'x' cursor */
   int __len;  /*!< @brief Length of the pixels array */
   int pad[ 4 ];  /*!< @brief Box padding */
   Color bg;  /*!< @brief Background color */
@@ -90,75 +89,75 @@ struct _Ui {
 
 /**
 * @brief Reserves memory to alloc a certain quantity of pixels
-* @param {int} __len - The quantity of pixels to be allocted
-* @retval {Ui_pix**} - Returns a pointer which points to other pixels pointers
+* @param __len - The quantity of pixels to be allocted
+* @retval - Returns a pointer which points to other pixels pointers
 */
 Ui_pix **alloc_pixs( int __len );
 
 
 /**
 * @brief This function destroys an array of pixels to liberate memory
-* @param {Ui_pix**} __pixs - Pointer which points to the data
-* @param {int} __len - The length of the pixs matrix
+* @param __pixs - Pointer which points to the data
+* @param __len - The length of the pixs matrix
 */
 void kill_pixs( Ui_pix **__pixs, int __len );
 
 
 /**
 * @brief Reserves memory to alloc a certain quantity of cache pixels
-* @param {int} __len - The quantity of pixels to be allocted
-* @retval {Ui_pix**} - Returns a pointer which points to other pixels pointers
+* @param __len - The quantity of pixels to be allocted
+* @retval - Returns a pointer which points to other pixels pointers
 */
 Ui_cpix **alloc_cpixs( int __len );
 
 
 /**
 * @brief This function destroys an array of cache pixels to liberate memory
-* @param {Ui_pix**} __pixs - Pointer which points to the data
-* @param {int} __len - The length of the pixs matrix
+* @param __pixs - Pointer which points to the data
+* @param __len - The length of the pixs matrix
 */
 void kill_cpixs( Ui_cpix **__pixs, int __len );
 
 
 /**
 * @brief Checks if a given position ( usually for pixels ) is overflowing the max size
-* @param {int} x - Represents the x position ( column of the matrix )
-* @param {int} y - Represents the y position ( row of the matrix )
-* @param {int} w - Represents the space width
-* @param {int} h - Represents the space height
-* @retval {bool} - Returns a boolean value, false if there is no overflow, else true
+* @param x - Represents the x position ( column of the matrix )
+* @param y - Represents the y position ( row of the matrix )
+* @param w - Represents the space width
+* @param h - Represents the space height
+* @retval - Returns a boolean value, false if there is no overflow, else true
 */
 bool ui_pix_ovf( int x, int y, int w, int h );
 
 
 /**
 * @brief Gets a pixel that is located in a given position
-* @param {Ui_pix**} __pixs - the array where the pixel should be located
-* @param {int} x - Represents the x position ( column of the matrix )
-* @param {int} y - Represents the y position ( row of the matrix )
-* @param {int} w - Represents the space width
-* @param {int} h - Represents the space height
-* @retval {Ui_pix*} - Returns a pointer to the found pixel, else returns NULL
+* @param __pixs - the array where the pixel should be located
+* @param x - Represents the x position ( column of the matrix )
+* @param y - Represents the y position ( row of the matrix )
+* @param w - Represents the space width
+* @param h - Represents the space height
+* @retval - Returns a pointer to the found pixel, else returns NULL
 */
 Ui_pix *ui_get_pix( Ui_pix **__pixs, int x, int y, int w, int h );
 
 
 /**
 * @brief Sets a given pixel in a given position
-* @param {Ui_pix**} __pixs - the array where the pixel should be located
-* @param {int} x - Represents the x position ( column of the matrix )
-* @param {int} y - Represents the y position ( row of the matrix )
-* @param {int} w - Represents the space width
-* @param {int} h - Represents the space height
-* @param {Ui_pix} pix - Struct of the pixel to be setted
+* @param __pixs - the array where the pixel should be located
+* @param x - Represents the x position ( column of the matrix )
+* @param y - Represents the y position ( row of the matrix )
+* @param w - Represents the space width
+* @param h - Represents the space height
+* @param pix - Struct of the pixel to be setted
 */
 void ui_set_pix( Ui_pix **__pixs, int x, int y, int w, int h, Ui_pix pix );
 
 /**
 * @brief Finds a box by it's id (slow)
-* @param {Ui*} ui - UI where the box should be located
-* @param {int} id - The id of the requested box
-* @retval {Ui_box*} - If the box was found returns a pointer
+* @param ui - UI where the box should be located
+* @param id - The id of the requested box
+* @retval - If the box was found returns a pointer
 * to the requested box, else returns NULL
 */
 Ui_box* ui_get_box_by_id( Ui* ui, int id );
@@ -166,58 +165,58 @@ Ui_box* ui_get_box_by_id( Ui* ui, int id );
 
 /**
 * @brief Gets a box by it's idx (fast)
-* @param {Ui*} ui - UI where the box should be located
-* @param {int} id - The id of the requested box
-* @retval {Ui_box*} - The box at the given index (can be NULL)
+* @param ui - UI where the box should be located
+* @param id - The id of the requested box
+* @retval - The box at the given index (can be NULL)
 */
 Ui_box* ui_get_box_by_idx( Ui* ui, int idx );
 
 
 /**
 * @brief Destroys a given box
-* @param {Ui*} ui - Ui where the box should be removed
-* @param {int} idx - Box index
+* @param ui - Ui where the box should be removed
+* @param idx - Box index
 */
 void ui_kill_box( Ui* ui, int idx );
 
 
 /**
 * @brief Resets the format
-* @param {int*} frm - Format array to be reseted
+* @param frm - Format array to be reseted
 */
 void _frm_rs( int *frm );
 
 
 /**
 * @brief Copies source format into destinationformat
-* @param {int*} dest - Format array destination
-* @param {int*} src - Format array source
+* @param dest - Format array destination
+* @param src - Format array source
 */
 void _frm_cpy( int *dest, int *src );
 
 
 /**
 * @brief Adds a value to a given format
-* @param {int*} frm - Format array to be modified
-* @param {int} v - Value to be added
+* @param frm - Format array to be modified
+* @param v - Value to be added
 */
 void _frm_add( int *frm, int v );
 
 
 /**
 * @brief Adds a list of values into a format array
-* @param {int*} frm - format array destination
-* @param {int} n - Number of parameters to be added
-* @param {va_list} list - List of parameters to be inserted
+* @param frm - format array destination
+* @param n - Number of parameters to be added
+* @param list - List of parameters to be inserted
 */
 void _frm( int *frm, int n, va_list list );
 
 
 /**
 * @brief Parses a given format string into a number format array
-* @param {int*} frm - Format destination
-* @param {int*} defrm - Default format in case of reset
-* @param {char*} sfrm - Format string
+* @param frm - Format destination
+* @param defrm - Default format in case of reset
+* @param sfrm - Format string
 */
 void _frm_parse( int *frm, int *defrm, const char *sfrm );
 
@@ -541,6 +540,8 @@ void ui_box_frms( Ui* ui, int idx, const char *frms, ... ){
   if ( !box || !frms )
     return;
 
+  _frm_rs( box->frm );
+
   va_start( _args, frms );
   vsnprintf( _buff, UI_MAX_BUFF_LEN, frms, _args );
   va_end( _args );
@@ -632,6 +633,22 @@ void ui_box_set_cx_off( Ui* ui, int idx, int cx_off ) {
 
 }
 
+void ui_box_set_cx_top( Ui* ui, int idx, int cx_top ) {
+
+  Ui_box *box;
+
+  box = ui_get_box_by_idx( ui, idx );
+
+  if ( !box )
+    return;
+
+  if ( cx_top < 0 || cx_top > box->w )
+    return;
+
+  box->cx_top = cx_top;
+
+}
+
 void ui_box_get_cursor( Ui* ui, int idx, int* cx, int* cy ) {
 
   Ui_box *box;
@@ -661,12 +678,15 @@ void ui_box_resize( Ui *ui, int idx, int w, int h ) {
   box->cy = 0;
   box->w = 0;
   box->h = 0;
+  box->cx_off = 0;
+  box->cx_top = 0;
 
   box->__pixs = alloc_pixs( w*h );
 
   if ( box->__pixs ) {
     box->w = w;
     box->h = h;
+    box->cx_top = w;
     box->__len = w*h;
   }
 
@@ -830,6 +850,7 @@ void ui_new_box( Ui *ui, int idx, int x, int y, int w, int h ) {
     box->cx = 0;
     box->cy = 0;
     box->cx_off = 0;
+    box->cx_top = w;
     box->id = idx;
     box->__len = w*h;
     box->bg = DEFAULT_BOX_BG_COLOR;
@@ -1012,7 +1033,7 @@ void ui_box_put( Ui *ui, int idx, const char *frmt, ... ) {
   char _buff[ UI_MAX_BUFF_LEN ];
   char __frm[ UI_MAX_BUFF_LEN ];
 
-  int i, j, box_w, box_h, *pad, cx_off, *cx, *cy;
+  int i, j, box_w, box_h, *pad, cx_off, cx_top, *cx, *cy;
 
   box = ui_get_box_by_idx( ui, idx );
 
@@ -1027,30 +1048,43 @@ void ui_box_put( Ui *ui, int idx, const char *frmt, ... ) {
   box_w = box->w;
   box_h = box->h;
   cx_off = box->cx_off;
+  cx_top = box->cx_top;
   cx = &box->cx; /* cursor x */
   cy = &box->cy; /* cursor y */
   pad = box->pad; /* box padding */
 
-  /* concat */
+  cx_top = cx_top == box_w ? box_w-pad[1] : cx_top;
+  cx_off = !cx_off ? pad[ 3 ] : cx_off;
+
+  /* process string */
   for ( i=0; _buff[ i ]; i++ ) {
 
-    if ( *cx == box_w - 1 ) {
+    if ( __frmxor( ui->__frm ) == 0 ) { /* if ui format is null use default box format */
+      _frm_cpy( _pix.frm, box->frm );
+    } else {
+      _frm_cpy( _pix.frm, ui->__frm ); /* else use ui format */
+    }
+
+    if ( *cx == cx_top - 1 ) {
 
       if ( i && _buff[ i - 1 ] == ' ' ) {
         _pix.c = ' ';
         ui_set_pix( box->__pixs, *cx, *cy, box_w, box_h, _pix );
         (*cx)++;
-      } else if ( _buff[ i ] != ' ' ) {
+      } else if ( _buff[ i + 1 ] ) {
+
         _pix.c = '-';
         ui_set_pix( box->__pixs, *cx, *cy, box_w, box_h, _pix );
         (*cx)++;
+
       }
 
     }
 
-    if ( *cx >= box_w - pad[1] ) {
+
+    if ( *cx >= cx_top ) {
       (*cy)++; /* go to the next line */
-      *cx = pad[3]+cx_off; /* fall back to the begining of the new line */
+      *cx = cx_off; /* fall back to the begining of the new line */
     }
 
     if ( *cy >= box_h - pad[2] ) { /* scroll */
@@ -1061,20 +1095,14 @@ void ui_box_put( Ui *ui, int idx, const char *frmt, ... ) {
       }
 
       (*cy)--;
-      *cx = pad[3]+cx_off;
+      *cx = cx_off;
     }
 
     _pix.c = _buff[ i ];
 
-    if ( __frmxor( ui->__frm ) == 0 ) { /* if ui format is null use default box format */
-      _frm_cpy( _pix.frm, box->frm );
-    } else {
-      _frm_cpy( _pix.frm, ui->__frm ); /* else use ui format */
-    }
-
     if ( _pix.c == '\n' ) {
 
-      while ( *cx < box_w - pad[1] ) {
+      while ( *cx < cx_top ) {
         _pix.c = ' ';
         ui_set_pix(box->__pixs, *cx, *cy, box_w, box_h, _pix );
         (*cx)++;
@@ -1085,7 +1113,7 @@ void ui_box_put( Ui *ui, int idx, const char *frmt, ... ) {
       _pix.c = ' ';
 
       j=0;
-      while ( *cx < box_w - pad[1] && j < UI_TAB_SIZE ) {
+      while ( *cx < cx_top && j < UI_TAB_SIZE ) {
         ui_set_pix( box->__pixs, *cx, *cy, box_w, box_h, _pix );
         (*cx)++; j++;
       }
@@ -1145,13 +1173,11 @@ void ui_draw( FILE *stream, Ui *ui ) {
   int o_xor=0, /* old format check sum */
       xor;  /* current format check sum */
   char __frm[ UI_MAX_SFRM_LEN ] = "";
-  bool pfrm;
 
   if ( !stream || !ui )
     return;
 
   scr_w = ui->scr.w;
-  pfrm = true;
 
   for ( i=0; i < ui->__len; i++ ) {
 

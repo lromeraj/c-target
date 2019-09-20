@@ -42,20 +42,46 @@ bool exists_file( const char *f_path ) {
 	return access( f_path, F_OK ) != -1 ? true : false;
 }
 
+bool find_word( char *str, char *word ) {
+
+	int _slen, _wlen, _idxm, i;
+
+	if ( !word || !str ) return false;
+
+	_idxm = 0; /* index matches */
+	_slen = strlen( str );
+	_wlen = strlen( word );
+
+	for ( i=0; i<_slen; i++ ) {
+
+		if ( word[ _idxm ] == str[ i ] ) {
+			_idxm++;
+		} else {
+			_idxm = 0;
+		}
+
+		if ( _idxm == _wlen-1 ) break;
+
+	}
+
+	return _idxm == _wlen-1 ? true : false;
+
+}
+
 char* shift_collect_to(
 	char **argv,
 	int max,
 	char *strl,
-	const char *del,
+	const char *del, /* delimeter */
 	int *to
 ) {
 
 	int i, len;
 	char *_args;
-	char _buff[ 1024 ] = "";
+	char _buff[ 2048 ] = "";
 
 	for ( i=(*to+1); i<max; i++ ) {
-		if ( !strcmptok( argv[ i ], strl, del ) ) {
+		if ( strl && !strcmptok( argv[ i ], strl, del ) ) {
 			break;
 		} else {
 			strcat( _buff, argv[ i ] );
