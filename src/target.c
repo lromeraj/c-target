@@ -18,42 +18,15 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 
-
-#define _VERSION "v0.7.2"
+#define _VERSION "v0.6.1"
 
 enum { HELP_HEAD, HELP_BODY };
 
 void _kill( int errc );
 
-
 int _rm( const char *f_path );
 
-
 void ascii_decorations();
-
-void basename( char *dest, char *src, size_t size ) {
-
-	int len;
-	char *_str, *tok1, *tok2;
-
-	if ( !dest || !src )
-		return;
-
-	len = strlen( src );
-	_str = (char*) malloc( (len+1)*sizeof( char ) );
-	strcpy( _str, src );
-
-	tok1 = tok2 = strtok( _str, "/" );
-
-	while( tok2 ) {
-		tok2 = strtok( NULL, "/" );
-		tok1 = tok2 ? tok2 : tok1;
-	}
-
-	strncpy( dest, tok1, size );
-
-	free( _str );
-}
 
 int _comp();
 int _link();
@@ -119,8 +92,19 @@ void _run( const char *_args) {
 
 }
 
+void new_ui( Ui **ui, int w, int h ) {
+
+	if ( ui != NULL ) {
+		ui_destroy( *ui );
+	}
+
+	*ui = ui_init( w, h );
+
+}
+
 int main( int argc, char *argv[] ) {
 
+	Ui *_ui = NULL;
 	int i, j, sts;
 	FILE *_f;
 	char *_arg, *_str;
@@ -163,7 +147,7 @@ int main( int argc, char *argv[] ) {
 	/* load default environment if it is defined */
 	_str = conf_get_pidx( DEFAULT_ENV, 1 );
 
-	if ( _str && strcmptok( argv[ 1 ], "-e,--env,-i,--init,-h,--help", "," ) ) {
+	if ( _str && !strcmptok( argv[ 1 ], "-r,--run,-c,--comp,-d,--dist,-cl,--clean", "," ) ) {
 
 		sts = conf_load_env( CONF_FILE_NAME, _str );
 
@@ -213,12 +197,14 @@ int main( int argc, char *argv[] ) {
 
 			_p( _TASK_START, "MEMCHECK START" );
 
-			conf_check_p( TARGET, _NULL_CHECK, _END_CHECK );
+			sts = conf_check_p( TARGET, _NULL_CHECK, _END_CHECK );
+
+			printf("%d", sts );
 
 			if ( !exists_cmd( "valgrind" ) ) {
 				_p( _ERROR, "valgrind: command not found\n" );
 				shift_to( argv, argc, "-e,--env", ",", &i );
-			} else {
+			} else if ( !sts ) {
 
 				strcpy( _cmd, "valgrind " );
 
@@ -323,14 +309,23 @@ int main( int argc, char *argv[] ) {
 		} else if ( !strcmptok( _arg, "-h,--help", "," ) ) {
 			_help( argc, argv );
 			argc=0;
+		} else if ( !strcmptok( _arg, "-v,--version", "," ) )  {
+
+			new_ui( &_ui, 80, 1 );
+			ui_new_box( _ui, 0, 0, 0, 80, 1 );
+			ui_box_put( _ui, 0, "@{1;33}C-target@{0} @{1;36}%s@{0} by @{1}@lromeraj@{0} | All rights reserved", _VERSION );
+
+			ui_dump_box( _ui, 0 );
+			ui_draw( stdout, _ui );
+
 		} else {
 
 			_p( _WARN, "unknown option '%s'\n", _arg );
-
 		}
 
 	}
 
+	ui_destroy( _ui );
 	_kill( 0 );
 
 	return EXIT_SUCCESS;
@@ -573,10 +568,9 @@ void _ini( char *opts ) {
 	char _ascii_t[ 128 ] = "./.ascii_title";
 	char _install_dir[ 128 ] = "/usr/share/ctarget/";
 	char _name[ 16 ];
-	char _env[ 128 ] = "main_env";
 	char _v[ 64 ] = "v0.0.1";
 	char _clog[ 128 ] = "CHANGELOG.md";
-	char _buff[ 1024 ] = "";
+	/* char _buff[ 1024 ] = ""; */
 
 	_f = fopen( CONF_FILE_NAME, "r" );
 
@@ -586,17 +580,17 @@ void _ini( char *opts ) {
 		return;
 	}
 
+	/* request project name */
+	printf("project name [%ld]: ", (long)sizeof( _name ) );
+	fgets( _name, sizeof( _name ), stdin );
+	strcln( _name );
+
 	_f = fopen( CONF_FILE_NAME, "w" );
 
 	if ( !_f ) {
 		_p( _ERROR, "could not initialize configuration file\n" );
 		return;
 	}
-
-	/* request project name */
-	printf("project name [%ld]: ", (long)sizeof( _name ) );
-	fgets( _name, sizeof( _name ), stdin );
-	strcln( _name );
 
 	_p( _INFO, "building project structure ... \n");
 
@@ -610,10 +604,10 @@ void _ini( char *opts ) {
 	fprintf( _f, "INCDIR=%s  # include directory\n", _inc );
 	fprintf( _f, "OBJDIR=%s  # object directory\n", _obj );
 	fprintf( _f, "DISTDIR=%s  # distribution dir\n", _dist );
-	fprintf( _f, "CFLAGS=[ -g, -Wall ]  # compilation flags\n" );
+	fprintf( _f, "CFLAGS=[ -ansi, -g, -Wall ]  # compilation flags\n" );
 	fprintf( _f, "LDFLAGS=[ -lm ]  # link flags\n" );
 	fprintf( _f, "DIST_IGNORE=[ %s/*.zip, %s/*.o ]  # files to be ignored when distribuiting\n", _dist, _obj );
-	fprintf( _f, "DEFAULT_ENV=%s  # default environment\n", _env );
+	fprintf( _f, "DEFAULT_ENV=%s  # default environment\n", _name );
 	fprintf( _f, "CLOG=%s # changelog file\n", _clog );
 
 	if ( exists_cmd( "figlet" ) ) {
@@ -630,9 +624,9 @@ void _ini( char *opts ) {
 		system( _cmd );
 	}
 
-	fprintf( _f, "\n[%s]\n", _env );
-	fprintf( _f, "TARGET=main\n" );
-	fprintf( _f, "SRCS=[ main ]  # dependency modules\n" );
+	fprintf( _f, "\n[%s]\n", _name );
+	fprintf( _f, "TARGET=%s\n", _name );
+	fprintf( _f, "SRCS=[ %s ]  # dependency modules\n", _name );
 
 	fclose( _f );
 
@@ -641,8 +635,8 @@ void _ini( char *opts ) {
 		system( _cmd );
 	}
 
-	_p( _INFO, "generating main.c file %s%s%s ... \n", ANSI_FG_YELLOW, _buff, ANSI_RESET );
-	sprintf( _cmd, "cp %s/src/defs/main.c %s/", _install_dir, _src );
+	_p( _INFO, "generating default %s%s.c%s file ... \n", ANSI_FG_YELLOW, _name, ANSI_RESET );
+	sprintf( _cmd, "cp %s/src/defs/main.c %s/%s.c", _install_dir, _src, _name );
 	system( _cmd );
 
 	_f = fopen( _clog, "w" );
@@ -681,7 +675,7 @@ int _comp() {
 	int chgs; /* changes */
 	bool cit; /* compile it flag */
 	long md;
-	char 	*_str, /* temporary strin pointer */
+	char 	*_str, /* temporary string pointer */
 				*_src, /* source path */
 				*_inc, /* include path */
 				*_obj, /* object path */
@@ -746,8 +740,6 @@ int _comp() {
 	);
 
 	chgs = 0;
-
-	/* searh for modified files in source directory */
 	for ( i=1; _srcs[ i ]; i++ ) {
 
 		sprintf( file_o, "%s/%s.o", _obj, _srcs[ i ] );
@@ -819,7 +811,6 @@ int _comp() {
 		str_sdestroy( &_str );
 	}
 
-	 /* compile all modified files */
 	for ( i=1; _srcs[ i ]; i++ ) {
 
 		sprintf( file_o, "%s/%s.o", _obj, _srcs[ i ] );
@@ -830,7 +821,7 @@ int _comp() {
 
 			_p( _INFO, "compiling: %s%s%s -> %s\n", ANSI_FG_BYELLOW, file_c, ANSI_RESET, file_o );
 
-			sprintf( _cmd, "gcc -fdiagnostics-color=always %s -I %s -c %s -o %s ", _flags, _inc, file_c, file_o );
+			sprintf( _cmd, "gcc %s -I %s -c %s -o %s ", _flags, _inc, file_c, file_o );
 			sts = system( _cmd );
 
 		} else {

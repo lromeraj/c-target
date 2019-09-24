@@ -31,7 +31,7 @@ char* str_clone( const char *str ) {
     return NULL;
 
   memcpy( _clone, str, len );
-
+  
   return _clone;
 }
 

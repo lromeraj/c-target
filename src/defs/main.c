@@ -3,10 +3,7 @@
 
 int main( int argc, char *argv[] ) {
 
-	int i;
-	for (i=0; i < argc; i++ ) {
-		printf("let's build awesome code!\n");
-	}
+	printf("let's build awesome code!\n");
 
 	return 0;
 }

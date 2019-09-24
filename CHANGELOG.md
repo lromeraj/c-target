@@ -1,3 +1,11 @@
+## v0.6.1
+`[FIXES]`
+- Fixed core-dumped when `-m` flag was given and $TARGET was not defined.
+- Improved stability.
+
+`[NEW]`
+- Added flag `-v` to see current version.
+
 ## v0.5.4
 `[FIXES]`
 - Minor bug fixes.

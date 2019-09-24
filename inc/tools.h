@@ -31,6 +31,9 @@ typedef enum {
 	_TASK_END
 } PrintType;
 
+
+void basename( char *dest, char *src, size_t size );
+void buildSrcs( char **srcs );
 void _p( PrintType type, const char *frmt, ... );
 bool exists_dir( const char *path );
 bool exists_file( const char *f_path );

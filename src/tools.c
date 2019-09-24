@@ -8,6 +8,28 @@
 #include <stdlib.h>
 #include <stdarg.h>
 
+void basename( char *dest, char *src, size_t size ) {
+
+	char *_str, *tok1, *tok2, *_tok;
+
+	if ( !dest || !src )
+		return;
+
+	_str = str_clone( src );
+
+	tok1 = tok2 = strtok_r( _str, "/", &_tok );
+
+	while( tok2 ) {
+		tok2 = strtok_r( NULL, "/", &_tok );
+		tok1 = tok2 ? tok2 : tok1;
+	}
+
+	strncpy( dest, tok1, size );
+
+	str_destroy( _str );
+
+}
+
 bool exists_cmd( const char *_cmd ) {
 
 	int _sts;

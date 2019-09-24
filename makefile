@@ -5,7 +5,7 @@ OBJDIR = ./obj
 CFILES = $(wildcard $(SRCDIR)/*.c)
 OFILES = $(patsubst $(SRCDIR)/%.c, $(OBJDIR)/%.o, $(CFILES))
 
-INSTALL_DIR = /usr/share/ctarget/
+INSTALL_DIR = /usr/share/ctarget
 
 all: clean ctarget
 
