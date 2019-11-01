@@ -1,3 +1,5 @@
+#define _GNU_SOURCE
+
 #include "str.h"
 #include <string.h>
 #include <stdlib.h>
@@ -31,7 +33,7 @@ char* str_clone( const char *str ) {
     return NULL;
 
   memcpy( _clone, str, len );
-  
+
   return _clone;
 }
 
@@ -75,27 +77,28 @@ void strcln( char *str ) {
 }
 
 int strcmptok(
-	const char *str,
-	char *strl,
-	const char *del
+  const char *str,
+  char *strl,
+  const char *del
 ) {
 
-	char *tok;
-	char _buff[1024];
+  char *tok;
+  char *sptr;
+  char _buff[1024];
 
-	if ( !str || !strl || !del )
-		return 1;
+  if ( !str || !strl || !del )
+    return 1;
 
-	strncpy( _buff, strl, sizeof( _buff ) );
-	_buff[ sizeof( _buff ) - 1 ] = 0;
+  strncpy( _buff, strl, sizeof( _buff ) );
+  _buff[ sizeof( _buff ) - 1 ] = 0;
 
-	tok = strtok( _buff, del );
+  tok = strtok_r( _buff, del, &sptr );
 
-	while ( tok ) {
-		if ( !strcmp( tok, str ) )
-			return 0;
-		tok = strtok( NULL, del );
-	}
+  while ( tok ) {
+    if ( !strcmp( tok, str ) )
+      return 0;
+    tok = strtok_r( NULL, del, &sptr );
+  }
 
-	return 1;
+  return 1;
 }

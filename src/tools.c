@@ -179,28 +179,29 @@ void _p( PrintType type, const char *frmt, ... ) {
 	switch ( type ) {
 
 		case _ERROR:
-			printf( "%serror%s: %s", ANSI_FG_BRED, ANSI_RESET, _buff );
+			fprintf( stderr, "%serror%s: %s", ANSI_FG_BRED, ANSI_RESET, _buff );
 			break;
 		case _SUCCESS:
-			printf( "%ssuccess%s: %s", ANSI_FG_BGREEN, ANSI_RESET, _buff );
+			fprintf( stdout, "%ssuccess%s: %s", ANSI_FG_BGREEN, ANSI_RESET, _buff );
 			break;
 		case _INFO:
-			printf( "%sinfo%s: %s", ANSI_FG_BCYAN, ANSI_RESET, _buff );
+			fprintf( stdout, "%sinfo%s: %s", ANSI_FG_BCYAN, ANSI_RESET, _buff );
 			break;
 		case _WARN:
-			printf( "%swarn%s: %s", ANSI_FG_BYELLOW, ANSI_RESET, _buff );
+			fprintf( stderr, "%swarn%s: %s", ANSI_FG_BYELLOW, ANSI_RESET, _buff );
 			break;
 		case _TASK_START:
-			printf("======== [%s%s%s] %s%s%s\n", ANSI_FG_BPURPLE, conf_get_env(), ANSI_RESET, ANSI_FG_BGREEN, _buff, ANSI_RESET );
+			fprintf( stdout, "======== [%s%s%s] %s%s%s\n", ANSI_FG_BPURPLE, conf_get_env(), ANSI_RESET, ANSI_FG_BGREEN, _buff, ANSI_RESET );
 			break;
 		case _NOTE:
-			printf("%snote%s: %s%s", ANSI_FG_BPURPLE, ANSI_RESET, _buff, ANSI_RESET );
+			fprintf( stdout, "%snote%s: %s%s", ANSI_FG_BPURPLE, ANSI_RESET, _buff, ANSI_RESET );
 			break;
 		case _TASK_END:
-			printf("======== [%s%s%s] %s%s%s\n", ANSI_FG_BPURPLE, conf_get_env(), ANSI_RESET, ANSI_FG_BRED, _buff, ANSI_RESET );
+			fprintf( stdout, "======== [%s%s%s] %s%s%s\n", ANSI_FG_BPURPLE, conf_get_env(), ANSI_RESET, ANSI_FG_BRED, _buff, ANSI_RESET );
 			break;
 	}
 
 	fflush( stdout );
+	fflush( stderr );
 
 }

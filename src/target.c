@@ -1,5 +1,3 @@
-#define _DEFAULT_SOURCE
-
 #include "ui.h"
 #include "str.h"
 #include "stack.h"
@@ -17,8 +15,9 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <sys/ioctl.h>
 
-#define _VERSION "v0.6.1"
+#define _VERSION "v0.6.5"
 
 enum { HELP_HEAD, HELP_BODY };
 
@@ -34,7 +33,9 @@ int _clean();
 void _run();
 void _dist();
 void _ini( char *opts );
-void _help( int argc, char *argv[] );
+void _upd_ascii_v( char *ver );
+void _get_prj_v( char *dest, size_t len );
+void _show_help( int argc, char *argv[] );
 
 long _statmd( const char *f_path ) {
 
@@ -109,21 +110,18 @@ int main( int argc, char *argv[] ) {
 	FILE *_f;
 	char *_arg, *_str;
 	char _cmd[ 2048 ] = "";
+	char _buff[ 1024 ];
+	bool ignoreConf = false;
+	bool showDefaultEnv = true;
 
 	if ( argc < 2 ) {
-		_p( _ERROR, "too few args\n");
+		_p( _WARN, "I need some flags to know what to do!\n");
 		_kill( 1 );
 	}
 
-	/* check for configuration file */
-	_f = fopen( CONF_FILE_NAME, "r" );
-
-	if ( !_f && strcmptok( argv[ 1 ], "-i,--init,-h,--help", "," ) ) {
-		_p( _ERROR, "%s%s%s: no such file\n", ANSI_FG_BWHITE, CONF_FILE_NAME, ANSI_RESET );
-		_kill( 1 );
+	if ( argc == 2 && !strcmptok( argv[ 1 ], "-h,--help", "," ) ) {
+		ignoreConf = true;
 	}
-
-	if ( _f ) fclose( _f );
 
 	conf_set_p_name( DEFAULT_ENV, "DEFAULT_ENV" );
 	conf_set_p_name( SRCDIR, "SRCDIR" );
@@ -141,19 +139,45 @@ int main( int argc, char *argv[] ) {
 	conf_set_p_name( CLOG, "CLOG" );
 	conf_set_p_name( SRCS, "SRCS" );
 
-	/* load by default global configuration */
-	conf_load_env( CONF_FILE_NAME, "GLOBAL" );
+	/* check for configuration file */
+
+	if ( !ignoreConf ) {
+
+		_f = fopen( CONF_FILE_NAME, "r" );
+
+		if ( !_f ) {
+			_p( _ERROR, "%s%s%s: no such file\n", ANSI_FG_BWHITE, CONF_FILE_NAME, ANSI_RESET );
+			_kill( 1 );
+		}
+
+		if ( _f ) fclose( _f );
+
+		/* load by default global configuration */
+		conf_load_env( CONF_FILE_NAME, "GLOBAL" );
+
+
+	}
+
+	for (i=1;i<argc;i++) {
+		if ( !strcmptok( argv[ i ], "-e,--env", "," ) ) {
+			showDefaultEnv = false;
+			break;
+		}
+	}
 
 	/* load default environment if it is defined */
 	_str = conf_get_pidx( DEFAULT_ENV, 1 );
 
-	if ( _str && !strcmptok( argv[ 1 ], "-r,--run,-c,--comp,-d,--dist,-cl,--clean", "," ) ) {
+	if ( _str && showDefaultEnv ) {
 
 		sts = conf_load_env( CONF_FILE_NAME, _str );
+		printf("%s", conf_get_pidx( ASCII_VERSION, 1 ) );
 
 		if ( !sts ) {
+
 			_p( _INFO, "using [%s%s%s] as default environment\n", ANSI_FG_YELLOW, _str, ANSI_RESET );
 			ascii_decorations();
+
 		} else {
 			_p( _ERROR, "default env [%s] was not found\n", _str );
 			_kill( 1 );
@@ -187,6 +211,11 @@ int main( int argc, char *argv[] ) {
 				}
 
 			}
+
+		} else if ( !strcmptok( _arg, "--update-ascii-version,--upd-ascii-v", "," )  ) {
+
+			_get_prj_v( _buff, sizeof( _buff ) );
+			_upd_ascii_v( _buff );
 
 		} else if ( !strcmptok( _arg, "-d,--dist", "," ) ) {
 			_p( _TASK_START, "DIST START" );
@@ -307,7 +336,7 @@ int main( int argc, char *argv[] ) {
 			_p( _TASK_END, "COMPILATION END" );
 
 		} else if ( !strcmptok( _arg, "-h,--help", "," ) ) {
-			_help( argc, argv );
+			_show_help( argc, argv );
 			argc=0;
 		} else if ( !strcmptok( _arg, "-v,--version", "," ) )  {
 
@@ -442,16 +471,64 @@ int _link( ) {
 	return sts;
 }
 
+void _get_prj_v( char *to, size_t len ) {
+
+	FILE *pf;
+	char *_clog;
+	char _v[ 64 ];
+	char _cmd[ 1024 ];
+
+	_clog = conf_get_pidx( CLOG, 1 );
+
+	if ( _clog ) {
+
+		sprintf( _cmd, "grep -Po -m1 'v[0-9].*' %s", _clog );
+
+		pf = popen( _cmd, "r" );
+		while( fgets( _v, sizeof( _v ), pf ) );
+		pclose( pf );
+
+		strcln( _v ); /* clean \n */
+
+		strncpy( to, _v, len );
+
+	}
+
+}
+
+void _upd_ascii_v( char *ver ) {
+
+	char *_ascii_v;
+	char _cmd[ 1024 ];
+
+	if ( !ver ) return;
+
+	_ascii_v = conf_get_pidx( ASCII_VERSION, 1 );
+
+	if ( exists_cmd( "figlet" ) && exists_file( _ascii_v ) ) {
+
+		_p( _INFO, "updating ASCII file: %s%s%s\n", ANSI_FG_BWHITE, _ascii_v, ANSI_RESET );
+
+		sprintf( _cmd, "figlet %s > %s", ver, _ascii_v );
+		system( _cmd );
+
+		printf( "%s", ANSI_FG_BYELLOW );
+		print_file( stdout, _ascii_v );
+		printf( "%s", ANSI_RESET );
+
+	}
+
+}
+
 void _dist() {
 
 	int i, sts;
-	FILE *pf;
 	char _v[ 64 ];
 	char _dir[ 256 ];
 	char _cmd[ 1024 ];
 	char _zname[ 256 ];
 	char **_ignore;
-	char *_ascii_v, *_target, *_dist, *_clog;
+	char *_target, *_dist;
 	time_t t;
 	struct tm tm;
 
@@ -462,9 +539,9 @@ void _dist() {
 	if ( sts )
 	 	return;
 
+	_v[0] = 0;
 	_cmd[0] = 0;
 	_dir[0] = 0;
-	_v[0] = 0;
 
 	t = time(NULL);
 	tm = *localtime(&t);
@@ -472,42 +549,17 @@ void _dist() {
 	_ignore = conf_get_p( DIST_IGNORE );
 	_target = conf_get_pidx( TARGET, 1 );
 	_dist = conf_get_pidx( DISTDIR, 1 );
-	_clog = conf_get_pidx( CLOG, 1 );
 
 	getcwd( _dir, sizeof( _dir ) );
 	basename( _dir, _dir, sizeof( _dir ) );
+	_get_prj_v( _v, sizeof( _v ) );
 
-	if ( _clog ) {
+	if ( _v[ 0 ] ) {
 
-		sprintf( _cmd, "grep -Po -m1 'v[0-9].*' %s", _clog );
-
-		pf = popen( _cmd, "r" );
-		while( fgets( _v, sizeof( _v ), pf ) );
-		strcln( _v ); /* clean \n */
-
-		pclose( pf );
-
-	}
-
-	if ( _v[0] ) {
-
-		_ascii_v = conf_get_pidx( ASCII_VERSION, 1 );
-
-
-		if ( exists_cmd( "figlet" ) && exists_file( _ascii_v ) ) {
-
-			_p( _INFO, "updating ASCII file: %s%s%s\n", ANSI_FG_BWHITE, _ascii_v, ANSI_RESET );
-
-			sprintf( _cmd, "figlet %s > %s", _v, _ascii_v );
-			system( _cmd );
-
-			printf( "%s", ANSI_FG_BYELLOW );
-			print_file( stdout, _ascii_v );
-			printf( "%s", ANSI_RESET );
-
-		}
+		_upd_ascii_v( _v );
 
 		sprintf( _zname, "%s_%s_%04d%02d%02d.zip", _target, _v, tm.tm_year+1900, tm.tm_mday, tm.tm_mon );
+
 	} else {
 		sprintf( _zname, "%s_%04d%02d%02d.zip", _target, tm.tm_year+1900, tm.tm_mday, tm.tm_mon );
 	}
@@ -840,14 +892,21 @@ int _comp() {
 
 }
 
-void _help( int argc, char *argv[] ) {
+void _show_help( int argc, char *argv[] ) {
 
 	Ui *ui;
 	char *arg;
-	ui = ui_init( 80, 22 );
+	short ws_col;
+	struct winsize size;
 
-	ui_new_box( ui, HELP_HEAD, 0, 0, 80, 1 );
-	ui_new_box( ui, HELP_BODY, 0, 1, 80, 21 );
+	ioctl( STDOUT_FILENO, TIOCGWINSZ, &size );
+
+	ws_col = size.ws_col > 80 ? 80 : size.ws_col;
+
+	ui = ui_init( ws_col, 22 );
+
+	ui_new_box( ui, HELP_HEAD, 0, 0, ws_col, 1 );
+	ui_new_box( ui, HELP_BODY, 0, 1, ws_col, 21 );
 	ui_box_put( ui, HELP_HEAD, "@{1;33}C-target@{0} by @{1;36}@lromeraj@{0} @{1}%s@{0}", _VERSION );
 
 	if ( argc > 2 ) {
@@ -881,6 +940,9 @@ C-target will read that version, and it will update your @{2}%s@{0} decoration f
 			ui_box_put( ui, HELP_BODY, "(@{33}gcc@{0} must be installed and accessible from your @{2}$PATH@{0})\n" );
 			ui_box_put( ui, HELP_BODY, "C-target will read your @{2}SRCS@{0} modules, if some of them needs to be compiled it will.\n" );
 			ui_box_put( ui, HELP_BODY, "If you have modified a file that is included in other files, these files will be compiled too.\n" );
+		} else if ( !strcmptok( arg, "-cl,--clean", "," ) ) {
+			ui_box_put( ui, HELP_BODY, "This flag says to C-target that you want to clean an environment.\n" );
+			ui_box_put( ui, HELP_BODY, "C-target will clean the main executable and will read your @{2}SRCS@{0} modules to know what to clean.\n" );
 		} else {
 			ui_box_put( ui, HELP_BODY, "There are are no entries for '@{1;%d}%s@{0}'\n", FG_RED, arg );
 			ui_box_put( ui, HELP_BODY, "Try using other key words ..." );
