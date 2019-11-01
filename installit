@@ -1,0 +1,28 @@
+#!/bin/bash
+
+source .src
+
+INSTALL_DIR=/usr/share/ctarget
+
+if [ $EUID -ne 0 ]; then
+	error "root permission is needed\n"
+	exit 1
+fi
+
+info "installing in $INSTALL_DIR\n"
+mkdir -p $INSTALL_DIR
+cp -r src/ $INSTALL_DIR/src
+cp -r inc/ $INSTALL_DIR/inc
+cp ctarget $INSTALL_DIR/ctarget
+
+rm -f /usr/local/bin/ctarget
+
+info "linking executable ...\n"
+sudo ln -s $INSTALL_DIR/ctarget /usr/local/bin/ctarget
+
+# copy bash completions
+info "installing bash autocompletions ...\n"
+sudo cp completions/ctarget /usr/share/bash-completion/completions/
+
+success "installation complete\n"
+exit 0
