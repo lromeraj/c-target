@@ -350,8 +350,8 @@ int main( int argc, char *argv[] ) {
 
 		} else if ( !strcmptok( _arg, "-v,--version", "," ) )  {
 
-			new_ui( &_ui, UI_WIN_COLS, 1 );
-			ui_new_box( _ui, 0, 0, 0, ui_get_w( _ui ), 1 );
+			new_ui( &_ui, UI_WIN_COLS, 5 );
+			ui_new_box( _ui, 0, 0, 0, 80, 5 );
 			ui_box_put( _ui, 0, "@{1;33}C-target@{0} @{1;36}%s@{0} by @{1}@lromeraj@{0} | All rights reserved", _VERSION );
 
 			ui_dump_box( _ui, 0 );
@@ -364,8 +364,8 @@ int main( int argc, char *argv[] ) {
 
 	}
 
-	_kill( 0 );
 	ui_destroy( _ui );
+	_kill( 0 );
 
 	return EXIT_SUCCESS;
 }

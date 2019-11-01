@@ -425,6 +425,8 @@ Ui *ui_init( int w, int h ) {
 
     ui->__pixs = NULL;
     ui->__cache = NULL;
+    ui->scr.w = 0;
+    ui->scr.h = 0;
 
     ui_resize( ui, w, h );
 
@@ -1225,7 +1227,7 @@ void ui_draw( FILE *stream, Ui *ui ) {
         scr_w;
   int   o_xor=0, /* old format check sum */
         xor, /* current pixel format check sum */
-        lxor; /* last pixel format checsum */
+        lxor=0; /* last pixel format checsum */
 
   char  __buff[ 8096 ],
         __frm[ UI_MAX_SFRM_LEN ] = "";
