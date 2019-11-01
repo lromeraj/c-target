@@ -25,4 +25,5 @@ info "installing bash autocompletions ...\n"
 sudo cp completions/ctarget /usr/share/bash-completion/completions/
 
 success "installation complete\n"
+
 exit 0

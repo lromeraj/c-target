@@ -25,8 +25,6 @@ void _kill( int errc );
 
 int _rm( const char *f_path );
 
-void ascii_decorations();
-
 int _comp();
 int _link();
 int _clean();
@@ -35,12 +33,13 @@ void _dist();
 void _ini( char *opts );
 void _upd_ascii_v( char *ver );
 void _get_prj_v( char *dest, size_t len );
-void _show_help( int argc, char *argv[] );
+void _show_help( Argv *argv );
+void ascii_decorations();
 
 long _statmd( const char *f_path ) {
 
 	time_t md;
-	struct stat f_info = {0};
+	struct stat f_info = { 0 };
 
 	if ( !f_path )
 		return -1;
@@ -106,8 +105,9 @@ void new_ui( Ui **ui, int w, int h ) {
 int main( int argc, char *argv[] ) {
 
 	Ui *_ui = NULL;
-	int i, j, sts;
-	FILE *_f;
+	int i, j, q, sts;
+	Argv *_argv; /* argv for random use */
+	FILE *_f; /* file pointer for random use */
 	char *_arg, *_str;
 	char _cmd[ 2048 ] = "";
 	char _buff[ 1024 ];
@@ -119,7 +119,7 @@ int main( int argc, char *argv[] ) {
 		_kill( 1 );
 	}
 
-	if ( argc == 2 && !strcmptok( argv[ 1 ], "-h,--help", "," ) ) {
+	if ( argc == 2 && !strcmptok( argv[ 1 ], "-h,--help,-v,--version", "," ) ) {
 		ignoreConf = true;
 	}
 
@@ -171,7 +171,6 @@ int main( int argc, char *argv[] ) {
 	if ( _str && showDefaultEnv ) {
 
 		sts = conf_load_env( CONF_FILE_NAME, _str );
-		printf("%s", conf_get_pidx( ASCII_VERSION, 1 ) );
 
 		if ( !sts ) {
 
@@ -222,7 +221,7 @@ int main( int argc, char *argv[] ) {
 			_dist();
 			_p( _TASK_END, "DIST END" );
 
-		} else if ( !strcmptok( _arg, "-m,--cmem", "," ) ) {
+		} else if ( !strcmptok( _arg, "-cm,--mem-check", "," ) ) {
 
 			_p( _TASK_START, "MEMCHECK START" );
 
@@ -336,12 +335,23 @@ int main( int argc, char *argv[] ) {
 			_p( _TASK_END, "COMPILATION END" );
 
 		} else if ( !strcmptok( _arg, "-h,--help", "," ) ) {
-			_show_help( argc, argv );
-			argc=0;
+
+			q = argc - i;
+			_argv = argv_build( q-1 );
+
+			if ( q > 1 ) {
+				argv_add( _argv, argv[ i + 1 ] );
+				i++; /* skip help parameter */
+			}
+
+			_show_help( _argv );
+
+			argv_free( _argv );
+
 		} else if ( !strcmptok( _arg, "-v,--version", "," ) )  {
 
-			new_ui( &_ui, 80, 1 );
-			ui_new_box( _ui, 0, 0, 0, 80, 1 );
+			new_ui( &_ui, UI_WIN_COLS, 1 );
+			ui_new_box( _ui, 0, 0, 0, ui_get_w( _ui ), 1 );
 			ui_box_put( _ui, 0, "@{1;33}C-target@{0} @{1;36}%s@{0} by @{1}@lromeraj@{0} | All rights reserved", _VERSION );
 
 			ui_dump_box( _ui, 0 );
@@ -354,8 +364,8 @@ int main( int argc, char *argv[] ) {
 
 	}
 
-	ui_destroy( _ui );
 	_kill( 0 );
+	ui_destroy( _ui );
 
 	return EXIT_SUCCESS;
 }
@@ -373,6 +383,7 @@ int _rm( const char *path ) {
 	if ( exists_file( path ) || exists_dir( path ) ) {
 
 		pid = fork();
+
 		if ( pid == 0 ) {
 			_p( _INFO, "removing: %s%s%s\n", ANSI_FG_BYELLOW, path, ANSI_RESET );
 			execl( "/bin/rm", "rm", "-rf" , path, NULL );
@@ -421,7 +432,7 @@ int _link( ) {
 	char **_ldflags = conf_get_p( LDFLAGS );
 	char file_o[ 128 ] = ""; /* temporary object file name */
 	Argv *_argv;
-	char *cmd;
+	char cmd[ 1024 ];
 
 	sts = 0;
 
@@ -457,14 +468,9 @@ int _link( ) {
 	argv_add( _argv, "-o" );
 	argv_add( _argv, _target );
 
-	cmd = argv_strlist( _argv );
+	argv_strlist( _argv, cmd, sizeof( cmd ) );
 
-	if ( cmd ) {
-		sts = system( cmd );
-		str_destroy( cmd );
-	} else {
-		sts = 1;
-	}
+	sts = system( cmd );
 
 	argv_free( _argv );
 
@@ -892,7 +898,7 @@ int _comp() {
 
 }
 
-void _show_help( int argc, char *argv[] ) {
+void _show_help( Argv *argv ) {
 
 	Ui *ui;
 	char *arg;
@@ -909,9 +915,9 @@ void _show_help( int argc, char *argv[] ) {
 	ui_new_box( ui, HELP_BODY, 0, 1, ws_col, 21 );
 	ui_box_put( ui, HELP_HEAD, "@{1;33}C-target@{0} by @{1;36}@lromeraj@{0} @{1}%s@{0}", _VERSION );
 
-	if ( argc > 2 ) {
+	if ( argv_n( argv ) == 1 ) {
 
-		arg = argv[ 2 ];
+		arg = argv_get_idx( argv, 0 );
 
 		ui_box_put( ui, HELP_BODY, "Help me with --> @{1;%d}%s@{0}\n", FG_PURPLE, arg );
 
@@ -929,9 +935,7 @@ void _show_help( int argc, char *argv[] ) {
 		} else if ( !strcmptok( arg, "-d,--dist", "," ) ) {
 			ui_box_put( ui, HELP_BODY, "This flag says to C-target that you want to distribute some environment.\n" );
 			ui_box_put( ui, HELP_BODY, "C-target will look for the last version inside @{2}%s@{0} file.\n", conf_get_p_name( CLOG ) );
-			ui_box_put( ui, HELP_BODY, "\
-If you have a version definition following this regex @{2}v[0-9].*@{0}, \
-C-target will read that version, and it will update your @{2}%s@{0} decoration file.\n", conf_get_p_name( ASCII_VERSION ) );
+			ui_box_put( ui, HELP_BODY, "If you have a version definition following this regex @{2}v[0-9].*@{0}, C-target will read that version, and it will update your @{2}%s@{0} decoration file.\n", conf_get_p_name( ASCII_VERSION ) );
 			ui_box_put( ui, HELP_BODY, "(@{33}figlet@{0} must be installed and accessible from your @{2}$PATH@{0})\n" );
 			ui_box_put( ui, HELP_BODY, "If C-target finds a version inside your @{2}%s@{0} file it will generate a zip named as `@{2}<%s>@{0}_@{2}<version>@{0}_@{2}<date>@{0}.zip`\n", conf_get_p_name( CLOG ), conf_get_p_name( TARGET ) );
 			ui_box_put( ui, HELP_BODY, "If C-target can't find a version, the zip will be named as\n`@{2}<%s>@{0}_@{2}<date>@{0}.zip`\n", conf_get_p_name( TARGET ) );
@@ -950,19 +954,18 @@ C-target will read that version, and it will update your @{2}%s@{0} decoration f
 
 	} else {
 
-		ui_box_put( ui, HELP_BODY, "  @{1}-r, --run@{0}     Executes the target of the environment\n" );
-		ui_box_put( ui, HELP_BODY, "  @{1}-i, --init@{0}    Initializes a new project\n" );
-		ui_box_put( ui, HELP_BODY, "  @{1}-e, --env@{0}     Selects an environment\n" );
-		ui_box_put( ui, HELP_BODY, "  @{1}-c, --comp@{0}    Compiles an environment\n" );
-		ui_box_put( ui, HELP_BODY, "  @{1}-cl, --clean@{0}  Cleans an environment\n" );
-		ui_box_put( ui, HELP_BODY, "  @{1}-m, --cmem@{0}    Checks memory usage using valgrind\n" );
-		ui_box_put( ui, HELP_BODY, "  @{1}-d, --dist@{0}    Distributes an environment\n" );
-		ui_box_put( ui, HELP_BODY, "  @{1}-h, --help@{0}    Shows this helpdesk\n" );
+		ui_box_put( ui, HELP_BODY, "  @{1}-r, --run@{0}        Executes the target of the environment\n" );
+		ui_box_put( ui, HELP_BODY, "  @{1}-i, --init@{0}       Initializes a new project\n" );
+		ui_box_put( ui, HELP_BODY, "  @{1}-e, --env@{0}        Selects an environment\n" );
+		ui_box_put( ui, HELP_BODY, "  @{1}-c, --comp@{0}       Compiles an environment\n" );
+		ui_box_put( ui, HELP_BODY, "  @{1}-cl, --clean@{0}     Cleans an environment\n" );
+		ui_box_put( ui, HELP_BODY, "  @{1}-cm, --mem-check@{0} Checks memory usage using valgrind\n" );
+		ui_box_put( ui, HELP_BODY, "  @{1}-d, --dist@{0}       Distributes an environment\n" );
+		ui_box_put( ui, HELP_BODY, "  @{1}-h, --help@{0}       Shows this helpdesk\n" );
 
 		ui_box_put( ui, HELP_BODY, "\nSee @{3;36}https://github.com/lromeraj/c-target@{0} for more information\n" );
 
 	}
-
 
 	ui_dump_box( ui, HELP_HEAD );
 	ui_dump_box( ui, HELP_BODY );

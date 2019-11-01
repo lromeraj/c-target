@@ -1,7 +1,8 @@
 ## v0.6.5
 `[NEW]`
 - Added interactive bash auto completions.
-- Added flag `--update-ascii-version`, this will read your changelog and check for new version.
+- Added flag `--update-ascii-version`, this will read your changelog and check for a newer version.
+- Updated UI module to version `1.2`.
 
 `[IMPROVEMENTS]`
 - Improved help info.
