@@ -246,7 +246,7 @@ int main( int argc, char *argv[] ) {
 
 			}
 
-		} else if ( !strcmptok( _arg, "--update-ascii-version,--upd-ascii-v", "," )  ) {
+		} else if ( !strcmptok( _arg, "-uav,--update-ascii-version", "," )  ) {
 
 			_get_prj_v( _buff, sizeof( _buff ) );
 			_upd_ascii_v( _buff );
@@ -516,22 +516,32 @@ void _get_prj_v( char *to, size_t len ) {
 
 	FILE *pf;
 	char *_clog;
-	char _v[ 64 ];
+	char _v[ 64 ] = "";
 	char _cmd[ 1024 ];
 
 	_clog = conf_get_pidx( CLOG, 1 );
 
-	if ( _clog ) {
+	if ( _clog && len ) {
 
-		sprintf( _cmd, "grep -Po -m1 'v[0-9].*' %s", _clog );
+		if ( exists_file( _clog ) ) {
 
-		pf = popen( _cmd, "r" );
-		while( fgets( _v, sizeof( _v ), pf ) );
-		pclose( pf );
+			sprintf( _cmd, "grep -Po -m1 'v[0-9].*' %s", _clog );
 
-		strcln( _v ); /* clean \n */
+			pf = popen( _cmd, "r" );
+			while( fgets( _v, sizeof( _v ), pf ) );
+			pclose( pf );
 
-		strncpy( to, _v, len );
+			if ( _v[ 0 ] != 0 ) {
+				strcln( _v ); /* clean \n */
+				strncpy( to, _v, len );
+			} else {
+				*to = 0;
+			}
+
+		} else {
+			_p( _WARN, "file %s%s%s not found\n", ANSI_FG_BWHITE, _clog, ANSI_RESET );
+			*to = 0;
+		}
 
 	}
 
@@ -539,20 +549,39 @@ void _get_prj_v( char *to, size_t len ) {
 
 void _upd_ascii_v( char *ver ) {
 
+	int ret;
 	char *_ascii_v;
 	char _cmd[ 1024 ];
 
+	ret = 0;
+
 	if ( !ver ) return;
 
-	_ascii_v = conf_get_pidx( ASCII_VERSION, 1 );
+	if ( ver[ 0 ] == 0 ) {
+		_p( _ERROR, "could not read version number\n" );
+		return;
+	}
 
-	if ( exists_cmd( "figlet" ) && exists_file( _ascii_v ) ) {
+	ret = conf_check_p( ASCII_VERSION, _NULL_CHECK, _END_CHECK );
 
-		_p( _INFO, "updating ASCII file: %s%s%s\n", ANSI_FG_BWHITE, _ascii_v, ANSI_RESET );
+	if ( !ret ) {
+
+		_ascii_v = conf_get_pidx( ASCII_VERSION, 1 );
+
+		if ( !exists_cmd( "figlet" ) ) {
+			_p( _ERROR, "command 'figlet' not available\n" );
+			return;
+		}
+
+		if ( !exists_file( _ascii_v ) ) {
+			_p( _WARN, "creating file %s%s%s\n", ANSI_FG_BWHITE, _ascii_v, ANSI_RESET );
+		} else {
+			_p( _INFO, "updating ASCII file: %s%s%s\n", ANSI_FG_BWHITE, _ascii_v, ANSI_RESET );
+		}
 
 		sprintf( _cmd, "figlet %s > %s", ver, _ascii_v );
 		system( _cmd );
-
+		
 		printf( "%s", ANSI_FG_BYELLOW );
 		print_file( stdout, _ascii_v );
 		printf( "%s", ANSI_RESET );
