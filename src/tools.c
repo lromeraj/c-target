@@ -167,6 +167,24 @@ int print_file( FILE *stream, const char *f_path ) {
 	return bytes;
 }
 
+int argvfindtok( char *argv[], int argc, char *strl, char *del ) {
+
+	int i;
+	int idx = -1;
+
+	if ( !argv || argc <= 0 )
+		return -1;
+
+	for ( i=0; i<argc; i++ ) {
+		if ( !strcmptok( argv[ i ], strl, del ) ) {
+			idx = i;
+			break;
+		}
+	}
+
+	return idx;
+}
+
 void _p( PrintType type, const char *frmt, ... ) {
 
 	va_list _list;

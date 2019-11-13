@@ -1,3 +1,7 @@
+## v0.6.6
+`[IMPROVEMENTS]`
+- Improved argument handling.
+
 ## v0.6.5
 `[NEW]`
 - Added interactive bash auto completions.

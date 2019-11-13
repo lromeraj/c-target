@@ -17,7 +17,7 @@
 #include <sys/wait.h>
 #include <sys/ioctl.h>
 
-#define _VERSION "v0.6.5"
+#define _VERSION "v0.6.6"
 
 enum { HELP_HEAD, HELP_BODY };
 
@@ -35,6 +35,7 @@ void _upd_ascii_v( char *ver );
 void _get_prj_v( char *dest, size_t len );
 void _show_help( Argv *argv );
 void ascii_decorations();
+void build_makefile(); /* in progress */
 
 long _statmd( const char *f_path ) {
 
@@ -50,7 +51,7 @@ long _statmd( const char *f_path ) {
 	return (long)md;
 }
 
-void _run( const char *_args) {
+void _run( const char *_args ) {
 
 	int i, sts;
 	char _buff[ 128 ] = "";
@@ -105,21 +106,53 @@ void new_ui( Ui **ui, int w, int h ) {
 int main( int argc, char *argv[] ) {
 
 	Ui *_ui = NULL;
-	int i, j, q, sts;
+	int 	i,
+				argi, /* argument index */
+				j,
+				q,
+				sts;
+
 	Argv *_argv; /* argv for random use */
 	FILE *_f; /* file pointer for random use */
 	char *_arg, *_str;
 	char _cmd[ 2048 ] = "";
-	char _buff[ 1024 ];
-	bool ignoreConf = false;
-	bool showDefaultEnv = true;
+	char _buff[ 1024 ] = "";
+
+	bool 	ignoreConf = false,
+				showDefaultEnv = true,
+				uncommonArgs = false;
+
+	int valid_idxs[ argc ]; /* handles argv index to ignore some arguments */
 
 	if ( argc < 2 ) {
 		_p( _WARN, "I need some flags to know what to do!\n");
 		_kill( 1 );
 	}
 
-	if ( argc == 2 && !strcmptok( argv[ 1 ], "-h,--help,-v,--version", "," ) ) {
+	argi = 1; /* initialize argument index to the second argument */
+
+	for ( i=0; i<argc; i++ ) { /* check if there are special arguments */
+
+		valid_idxs[ i ] = 0;
+
+		if ( !strcmptok( argv[ i ], "-h,--help", "," ) ) {
+
+			uncommonArgs = true;
+			valid_idxs[ i ] = 1;
+
+			if ( i+1 < argc ) {
+				valid_idxs[ i+1 ] = 1;
+			}
+
+		} else if ( !strcmptok( argv[ i ], "-v,--version", "," ) ) {
+			uncommonArgs = true;
+			valid_idxs[ i ] = 1;
+		}
+
+	}
+
+	if ( uncommonArgs ) {
+		showDefaultEnv = false;
 		ignoreConf = true;
 	}
 
@@ -158,11 +191,8 @@ int main( int argc, char *argv[] ) {
 
 	}
 
-	for (i=1;i<argc;i++) {
-		if ( !strcmptok( argv[ i ], "-e,--env", "," ) ) {
-			showDefaultEnv = false;
-			break;
-		}
+	if ( argvfindtok( argv, argc, "-e,--env", "," ) > -1 ) {
+		showDefaultEnv = false;
 	}
 
 	/* load default environment if it is defined */
@@ -184,29 +214,34 @@ int main( int argc, char *argv[] ) {
 
 	}
 
-	for ( i=1; i<argc; i++ ) {
+	for (; argi<argc; argi++ ) {
 
-		_arg = argv[ i ];
+		_arg = argv[ argi ];
+
+		if ( uncommonArgs && valid_idxs[ argi ] == 0 ) {
+			_p( _WARN, "arguemnt '%s' ignored\n", _arg );
+			continue;
+		}
 
 		if ( !strcmptok( _arg, "-e,--env", "," ) ) {
 
-			if ( i == argc-1 || !strncmp( argv[ i + 1 ], "-", 1 ) ) {
+			if ( argi == argc-1 || !strncmp( argv[ argi + 1 ], "-", 1 ) ) {
 				_p( _ERROR, "env: too few args\n", _arg );
-				shift_to( argv, argc, "-e,--env", ",", &i );
+				shift_to( argv, argc, "-e,--env", ",", &argi );
 			} else {
 
-				sts = conf_load_env( CONF_FILE_NAME, argv[ i + 1 ] );
+				sts = conf_load_env( CONF_FILE_NAME, argv[ argi + 1 ] );
 
 				if ( !sts ) {
 					ascii_decorations();
 				} else if ( sts == 2 ) {
-					_p( _ERROR, "env: [%s] not found\n", argv[ i + 1 ] );
+					_p( _ERROR, "env: [%s] not found\n", argv[ argi + 1 ] );
 				}
 
 				if ( sts ) {
-					shift_to( argv, argc, "-e,--env", ",", &i );
+					shift_to( argv, argc, "-e,--env", ",", &argi );
 				} else {
-					i++; /* shift next */
+					argi++; /* shift next */
 				}
 
 			}
@@ -231,7 +266,7 @@ int main( int argc, char *argv[] ) {
 
 			if ( !exists_cmd( "valgrind" ) ) {
 				_p( _ERROR, "valgrind: command not found\n" );
-				shift_to( argv, argc, "-e,--env", ",", &i );
+				shift_to( argv, argc, "-e,--env", ",", &argi );
 			} else if ( !sts ) {
 
 				strcpy( _cmd, "valgrind " );
@@ -250,7 +285,7 @@ int main( int argc, char *argv[] ) {
 				strcat( _cmd, conf_get_pidx( TARGET, 1 ) );
 				strcat( _cmd, " " );
 
-				_str = shift_collect_to( argv, argc, "-e,--env", ",", &i );
+				_str = shift_collect_to( argv, argc, "-e,--env", ",", &argi );
 
 				if ( _str ) {
 					strcat( _cmd, _str );
@@ -280,7 +315,7 @@ int main( int argc, char *argv[] ) {
 
 			_p( _TASK_START, "RUN START" );
 
-			_str = shift_collect_to( argv, argc, "-e,--env", ",", &i );
+			_str = shift_collect_to( argv, argc, "-e,--env", ",", &argi );
 
 			_run( _str );
 
@@ -294,7 +329,7 @@ int main( int argc, char *argv[] ) {
 		} else if ( !strcmptok( _arg, "-i,--init", "," ) ) {
 
 			/* collect all */
-			_str = shift_collect_to( argv, argc, NULL, NULL, &i );
+			_str = shift_collect_to( argv, argc, NULL, NULL, &argi );
 
 			argc=0;
 			_ini( _str ); /* send flags to ini function */
@@ -336,12 +371,12 @@ int main( int argc, char *argv[] ) {
 
 		} else if ( !strcmptok( _arg, "-h,--help", "," ) ) {
 
-			q = argc - i;
+			q = argc - argi;
 			_argv = argv_build( q-1 );
 
 			if ( q > 1 ) {
-				argv_add( _argv, argv[ i + 1 ] );
-				i++; /* skip help parameter */
+				argv_add( _argv, argv[ argi + 1 ] );
+				argi++; /* skip help parameter */
 			}
 
 			_show_help( _argv );

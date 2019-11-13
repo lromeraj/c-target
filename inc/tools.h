@@ -32,6 +32,7 @@ typedef enum {
 } PrintType;
 
 
+int argvfindtok( char *argv[], int argc, char *strl, char *del );
 void basename( char *dest, char *src, size_t size );
 void buildSrcs( char **srcs );
 void _p( PrintType type, const char *frmt, ... );
