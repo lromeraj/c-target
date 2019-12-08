@@ -1,0 +1,34 @@
+#!/bin/bash
+
+_ctarget_completion()
+{
+
+	local cur prev opts
+
+	COMPREPLY=()
+	cur="${COMP_WORDS[COMP_CWORD]}"
+	prev="${COMP_WORDS[COMP_CWORD-1]}"
+	opts="
+		--help --env --init
+		--comp --clean --mem-check
+		--run --update-ascii-version
+	"
+
+	if [ -e target.conf ]; then
+
+		ENVS=( $( cat target.conf | sed -n "s/^.*\[\s*\(\S*\)\].*$/\1/p" ) )
+
+		if [[ $prev == "-e" ]]; then
+			COMPREPLY+=( $(compgen -W "${ENVS[*]}" -- ${cur} ) )
+		fi
+
+	fi
+
+	if [[ ${cur} == --* ]]; then
+    COMPREPLY+=( $(compgen -W "${opts}" -- ${cur}) )
+	fi
+
+	return 0
+}
+
+complete -F _ctarget_completion ctarget
