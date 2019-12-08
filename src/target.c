@@ -147,6 +147,9 @@ int main( int argc, char *argv[] ) {
 		} else if ( !strcmptok( argv[ i ], "-v,--version", "," ) ) {
 			uncommonArgs = true;
 			valid_idxs[ i ] = 1;
+		} else if ( !strcmptok( argv[ i ], "-i,--init", "," ) ) {
+			uncommonArgs = true;
+			valid_idxs[ i ] = 1;
 		}
 
 	}
@@ -581,7 +584,7 @@ void _upd_ascii_v( char *ver ) {
 
 		sprintf( _cmd, "figlet %s > %s", ver, _ascii_v );
 		system( _cmd );
-		
+
 		printf( "%s", ANSI_FG_BYELLOW );
 		print_file( stdout, _ascii_v );
 		printf( "%s", ANSI_RESET );
